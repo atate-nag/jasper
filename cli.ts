@@ -168,11 +168,19 @@ async function handleMessage(input: string): Promise<string> {
     }
     // Calibration state
     const cal = personContext.calibration;
-    if (cal) {
+    if (cal?.challengeCeiling != null) {
       const depth = personContext.relationshipMeta.conversationCount <= 1 ? 'first_encounter' :
         personContext.relationshipMeta.conversationCount <= 5 ? 'early' :
         personContext.relationshipMeta.conversationCount <= 15 ? 'developing' : 'established';
       console.log(`${yellow}[CALIBRATION]${reset} depth: ${depth} | challenge: ${cal.challengeCeiling.toFixed(2)} | humour: ${cal.humourTolerance.toFixed(2)} | directness: ${cal.directnessPreference.toFixed(2)}`);
+    }
+    // Self-observations
+    if (personContext.selfObservations && personContext.selfObservations.length > 0) {
+      const uninjected = personContext.selfObservations.filter(o => !o.injected);
+      if (uninjected.length > 0) {
+        const notes = uninjected.flatMap(o => o.patternsNoted);
+        console.log(`${yellow}[METACOG]${reset} ${notes.length} self-obs: ${notes.map(n => n.metaheuristic).join(', ')}`);
+      }
     }
     console.log('');
   } else if (observeMode === 'verbose') {
@@ -347,6 +355,20 @@ async function shutdown(): Promise<void> {
           console.log(`  calibration updated: challenge=${updatedCal.challengeCeiling.toFixed(2)} humour=${updatedCal.humourTolerance.toFixed(2)} directness=${updatedCal.directnessPreference.toFixed(2)}`);
         } catch (err) {
           console.error('  calibration update failed:', err instanceof Error ? err.message : err);
+        }
+
+        // Metacognitive evaluation
+        try {
+          const { runSessionMetacognition } = await import('./src/lib/backbone/metacognition');
+          const obs = await runSessionMetacognition(USER_ID, conversationId!, history);
+          if (obs) {
+            console.log(`  metacognition: ${obs.patternsNoted.length} pattern(s) noted`);
+            for (const p of obs.patternsNoted) {
+              console.log(`    [${p.severity}] ${p.metaheuristic}: ${p.observation.slice(0, 100)}`);
+            }
+          }
+        } catch (err) {
+          console.error('  metacognition failed:', err instanceof Error ? err.message : err);
         }
 
         if (supabaseReady && conversationId) {

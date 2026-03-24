@@ -13,13 +13,14 @@ export { summariseConversation } from './summarise';
 export { recallConversation, extractSegments, recall, getSourceTurns } from './recall';
 export type { SegmentExtraction, RecallRequest, RecallResult, RecalledSegment } from './recall';
 export { extractSessionSignals, updateCalibration, saveCalibration } from './calibrate';
+export { runSessionMetacognition, getInjectableObservations, markObservationsInjected, computeSessionMetrics, evaluateMetaheuristics } from './metacognition';
 export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta, CalibrationParameters, CalibrationSignals, CommunicationStyle } from './types';
 
 import { getProfile, defaultCalibration } from './profile';
 // searchMemories is dynamically imported to avoid mem0ai bundling issues
 import { getRecentConversations } from './conversations';
 import { recallConversation } from './recall';
-import type { PersonContext, CalibrationParameters } from './types';
+import type { PersonContext, CalibrationParameters, SelfObservation } from './types';
 import type { Message } from '@/types/message';
 
 function bareProfile(userId: string) {
@@ -41,9 +42,9 @@ export async function getPersonContext(
   const profile = await getProfile(userId) ?? bareProfile(userId);
 
   // Load calibration parameters (from profile's relationship_meta or default)
-  const calibrationData = (profile as Record<string, unknown>).calibration;
-  const calibration = calibrationData
-    ? calibrationData as CalibrationParameters
+  const calibrationData = (profile as Record<string, unknown>).calibration as Record<string, unknown> | undefined;
+  const calibration = calibrationData && calibrationData.challengeCeiling != null
+    ? calibrationData as unknown as CalibrationParameters
     : defaultCalibration();
 
   // 2. Search Mem0 for relevant memories (gated by relevance threshold)
@@ -71,6 +72,13 @@ export async function getPersonContext(
   );
   const totalMessages = sessionMessages.length; // approximate
 
+  // Load self-observations for prompt injection
+  let selfObservations: SelfObservation[] = [];
+  try {
+    const { getInjectableObservations } = await import('./metacognition');
+    selfObservations = await getInjectableObservations(userId);
+  } catch { /* metacognition not yet available */ }
+
   return {
     profile,
     memories,
@@ -92,5 +100,6 @@ export async function getPersonContext(
       totalMessages,
     },
     calibration,
+    selfObservations,
   };
 }

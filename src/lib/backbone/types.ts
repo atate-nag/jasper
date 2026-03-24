@@ -115,6 +115,7 @@ export interface PersonContext {
   };
   relationshipMeta: RelationshipMeta;
   calibration?: CalibrationParameters;
+  selfObservations?: SelfObservation[];
 }
 
 export interface CommunicationStyle {
@@ -156,4 +157,25 @@ export interface CalibrationParameters {
   preferredRegister: string;
   onboardingCompleted: boolean;
   voicePreference: 'male' | 'female' | null;
+}
+
+export interface PatternNote {
+  metaheuristic: string;
+  observation: string;
+  evidence: string[];
+  severity: 'note' | 'flag' | 'concern';
+}
+
+export interface Adaptation {
+  parameter: string;
+  direction: 'increase' | 'decrease' | 'diversify' | 'sustain';
+  rationale: string;
+}
+
+export interface SelfObservation {
+  timestamp: string;
+  sessionId: string;
+  patternsNoted: PatternNote[];
+  adaptationsRecommended: Adaptation[];
+  injected: boolean;
 }

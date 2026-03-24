@@ -102,6 +102,31 @@ function buildPromptComponents(
     });
   }
 
+  // Priority 88: Self-observations from metacognitive layer
+  if (personContext.selfObservations && personContext.selfObservations.length > 0) {
+    const uninjected = personContext.selfObservations.filter(obs => !obs.injected);
+    if (uninjected.length > 0) {
+      const obsLines = uninjected.flatMap(obs =>
+        obs.patternsNoted.map(p => `- ${p.observation}`)
+      );
+      const adaptLines = uninjected.flatMap(obs =>
+        obs.adaptationsRecommended.map(a => `- ${a.parameter}: ${a.direction} — ${a.rationale}`)
+      );
+
+      let selfObsText = `SELF-OBSERVATIONS (from your recent interaction patterns with this person):\n${obsLines.join('\n')}`;
+      if (adaptLines.length > 0) {
+        selfObsText += `\n\nADAPTATIONS:\n${adaptLines.join('\n')}`;
+      }
+
+      components.push({
+        priority: 88,
+        content: selfObsText,
+        label: 'self_observations',
+        tokenEstimate: est(selfObsText),
+      });
+    }
+  }
+
   // Priority 85: Policy directives
   const policyContent = `RESPONSE STRATEGY: ${policy.name}\n\n${policy.system_prompt_fragment}\n\nRESPONSE STRUCTURE:\n- Opening: ${policy.response_structure.opening_move}\n- Development: ${policy.response_structure.development_approach}\n- Closing: ${policy.response_structure.closing_move}\n\nCONSTRAINTS:\n- Length: ${policy.constraints.max_length}\n- Reflection minimum: ${policy.constraints.reflection_minimum}\n- Challenge permitted: ${policy.constraints.challenge_permitted}\n- Humour permitted: ${policy.constraints.humour_permitted}`;
   components.push({
