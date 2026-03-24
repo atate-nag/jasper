@@ -1,4 +1,5 @@
 import type { ResponseDirective, Policy, RelationalDepth } from './types';
+import type { ConversationState } from './conversation-tracker';
 import type { PersonContext } from '@/lib/backbone/types';
 
 function getRelationalDepth(ctx: PersonContext): RelationalDepth {
@@ -13,6 +14,7 @@ export function selectPolicy(
   directive: ResponseDirective,
   personContext: PersonContext,
   policyLibrary: Policy[],
+  conversationState?: ConversationState,
 ): Policy {
   const depth = getRelationalDepth(personContext);
   const postureClass = directive.recommendedPostureClass;
@@ -54,6 +56,12 @@ export function selectPolicy(
     p.relational_depth_range.includes(depth) || p.relational_depth_range.includes('any')
   );
   if (depthMatches.length > 0) candidates = depthMatches;
+
+  // 2.7 Conversation-development mode: prefer conversation-aware policies
+  if (conversationState?.conversationDevelopmentMode && candidates.length > 1) {
+    const convAware = candidates.filter(p => p.conversation_aware === true);
+    if (convAware.length > 0) candidates = convAware;
+  }
 
   // 2.5. Exclude distress policy unless intent is actually distress
   if (directive.communicativeIntent !== 'distress') {

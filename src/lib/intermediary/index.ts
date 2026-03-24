@@ -6,6 +6,7 @@ import type { Message } from '@/types/message';
 import { recall } from '@/lib/backbone/recall';
 import type { RecallRequest } from '@/lib/backbone/recall';
 import type { ProductIdentity, SteeringResult, ResponseDirective, ModelConfig, Policy } from './types';
+import { updateConversationState, initialConversationState, type ConversationState } from './conversation-tracker';
 import { classify } from './classifier';
 import { selectPolicy } from './policy-selector';
 import { loadPolicies } from './policy-loader';
@@ -349,12 +350,21 @@ export async function steer(
   productIdentity: ProductIdentity,
   sessionHistory: Message[],
   previousDirective?: ResponseDirective,
+  previousConversationState?: ConversationState,
 ): Promise<SteeringResult> {
   // 1. Classify
   const rawDirective = await classify(userMessage, personContext, sessionHistory, previousDirective);
 
   // 2. Validate (guardrails only)
   const directive = validate(rawDirective, userMessage);
+
+  // 2.5 Update conversation state
+  const conversationState = updateConversationState(
+    previousConversationState || initialConversationState(),
+    directive,
+    userMessage,
+    sessionHistory.filter(m => m.role === 'user').length,
+  );
 
   // 3. Handle recall trigger
   let enrichedPersonContext = personContext;
@@ -404,7 +414,7 @@ export async function steer(
 
   // 4. Load and select policy
   const policies = loadPolicies();
-  const policy = selectPolicy(directive, enrichedPersonContext, policies);
+  const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
 
   // 5. Assemble prompt
   const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory);
@@ -437,6 +447,7 @@ export async function steer(
       extractMemories: isSubstantive,
       logTurn: true,
     },
+    conversationState,
   };
 }
 

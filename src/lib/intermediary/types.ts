@@ -1,6 +1,8 @@
 // LAYER B: Intermediary types
 // This layer MUST NOT import from product/
 
+import type { ConversationState } from './conversation-tracker';
+
 export type CommunicativeIntent =
   | 'sharing' | 'venting' | 'sense_making'
   | 'requesting_input' | 'requesting_action'
@@ -65,6 +67,7 @@ export interface Policy {
     challenge_permitted: boolean;
     humour_permitted: boolean;
   };
+  conversation_aware?: boolean;
 }
 
 export interface PolicyReference {
@@ -93,7 +96,10 @@ export interface SteeringResult {
     extractMemories: boolean;
     logTurn: boolean;
   };
+  conversationState: ConversationState;
 }
+
+export type { ConversationState } from './conversation-tracker';
 
 export interface ProductIdentity {
   name: string;

@@ -25,7 +25,7 @@ import type { Message } from './src/types/message';
 
 // Intermediary
 import { steer } from './src/lib/intermediary';
-import type { ResponseDirective, SteeringResult } from './src/lib/intermediary/types';
+import type { ResponseDirective, SteeringResult, ConversationState } from './src/lib/intermediary/types';
 
 // Product
 import { JASPER } from './src/lib/product/identity';
@@ -56,6 +56,7 @@ let voiceListening = false;
 let activeActivity: Activity | null = null;
 const activityHistory: Message[] = [];
 let previousDirective: ResponseDirective | undefined;
+let previousConversationState: ConversationState | undefined;
 
 const supabaseReady = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -147,8 +148,9 @@ async function handleMessage(input: string): Promise<string> {
   const personContext = await getPersonContext(USER_ID, input, history);
 
   // Steer
-  const steering = await steer(input, personContext, JASPER, history, previousDirective);
+  const steering = await steer(input, personContext, JASPER, history, previousDirective, previousConversationState);
   previousDirective = steering.responseDirective;
+  previousConversationState = steering.conversationState;
 
   // Observe output
   if (observeMode === 'compact') {
@@ -181,6 +183,17 @@ async function handleMessage(input: string): Promise<string> {
         const notes = uninjected.flatMap(o => o.patternsNoted);
         console.log(`${yellow}[METACOG]${reset} ${notes.length} self-obs: ${notes.map(n => n.metaheuristic).join(', ')}`);
       }
+    }
+    // Conversation state
+    if (steering.conversationState) {
+      const cs = steering.conversationState;
+      const threads = cs.activeThreads.map((t: { topic: string; depthLevel: string; turnCount: number }) => `${t.topic.slice(0, 30)}(${t.depthLevel}, ${t.turnCount}t)`).join(' | ');
+      if (cs.conversationDevelopmentMode) {
+        console.log(`${yellow}[CONVERSATION]${reset} mode: development (turn ${cs.turnsInMode}, entered: ${cs.entryReason})`);
+      } else {
+        console.log(`${yellow}[CONVERSATION]${reset} mode: user-centric`);
+      }
+      if (threads) console.log(`  threads: ${threads} | energy: ${cs.energyTrajectory}`);
     }
     console.log('');
   } else if (observeMode === 'verbose') {

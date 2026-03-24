@@ -129,7 +129,60 @@ export function updateCalibration(
   // Preferred register: track which register was dominant
   updated.preferredRegister = signals.dominantRegister;
 
+  // Evaluate depth progression
+  const newDepth = evaluateDepthProgression(updated);
+  updated.preferredRegister = newDepth;
+
   return updated;
+}
+
+/**
+ * Evaluate whether the relational depth should progress based on accumulated signals.
+ */
+export function evaluateDepthProgression(calibration: CalibrationParameters): string {
+  const currentDepth = calibration.preferredRegister === 'first_encounter'
+    ? 'first_encounter'
+    : inferDepth(calibration);
+
+  // Use accumulated signal counts from Beta parameters
+  const totalSessions = Math.max(
+    1,
+    Math.floor(calibration.challengeAlpha + calibration.challengeBeta - 7), // subtract initial priors
+  );
+
+  if (currentDepth === 'first_encounter') {
+    // Progress to 'early' when: 2+ sessions, some engagement
+    if (totalSessions >= 2 && calibration.disclosureComfort > 0.25) {
+      return 'early';
+    }
+  }
+
+  if (currentDepth === 'early') {
+    // Progress to 'developing' when: 5+ sessions, challenge engaged, corrections given
+    if (totalSessions >= 5 && calibration.challengeCeiling > 0.35 && calibration.directnessPreference > 0.4) {
+      return 'developing';
+    }
+  }
+
+  if (currentDepth === 'developing') {
+    // Progress to 'established' when: 10+ sessions, consistent challenge engagement
+    if (totalSessions >= 10 && calibration.challengeCeiling > 0.5) {
+      return 'established';
+    }
+  }
+
+  return currentDepth;
+}
+
+function inferDepth(cal: CalibrationParameters): string {
+  const totalSignals = cal.challengeAlpha + cal.challengeBeta +
+    cal.humourAlpha + cal.humourBeta +
+    cal.directnessAlpha + cal.directnessBeta;
+  // Rough estimate based on accumulated evidence
+  if (totalSignals < 20) return 'first_encounter';
+  if (totalSignals < 40) return 'early';
+  if (totalSignals < 80) return 'developing';
+  return 'established';
 }
 
 /**

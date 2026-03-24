@@ -12,7 +12,7 @@ export { classifyConversation, dedupCandidates } from './classify';
 export { summariseConversation } from './summarise';
 export { recallConversation, extractSegments, recall, getSourceTurns } from './recall';
 export type { SegmentExtraction, RecallRequest, RecallResult, RecalledSegment } from './recall';
-export { extractSessionSignals, updateCalibration, saveCalibration } from './calibrate';
+export { extractSessionSignals, updateCalibration, saveCalibration, evaluateDepthProgression } from './calibrate';
 export { runSessionMetacognition, getInjectableObservations, markObservationsInjected, computeSessionMetrics, evaluateMetaheuristics } from './metacognition';
 export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta, CalibrationParameters, CalibrationSignals, CommunicationStyle } from './types';
 
