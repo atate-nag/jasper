@@ -2,6 +2,13 @@
 
 import { useState, useRef, useCallback } from 'react';
 
+function isValidSpeech(transcription: string): boolean {
+  const cleaned = transcription
+    .replace(/[.\s,!?;:\-–—…'"()[\]{}]/g, '')
+    .trim();
+  return cleaned.length >= 3;
+}
+
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
 }
@@ -40,7 +47,7 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
 
           if (res.ok) {
             const { text } = await res.json();
-            if (text && text.trim().length > 1) {
+            if (text && isValidSpeech(text)) {
               onTranscript(text.trim());
             }
           }

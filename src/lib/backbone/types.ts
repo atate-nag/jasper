@@ -94,6 +94,7 @@ export interface ConversationSegment {
   segmentType?: string;
   turnRange?: [number, number];
   conversationDate: string;
+  sourceTurns?: import('@/types/message').Message[];
 }
 
 export interface RelationshipMeta {

@@ -9,7 +9,13 @@ You are ${turnsSinceLastInjection} turns into this conversation. Sycophancy pres
 - If you have a different perspective, share it.
 - If you notice yourself about to say "That's a great point" followed by agreement, stop. Say what you actually think.
 - Empty validation is worse than honest silence.
-- "Andrew" check: if a third person named Andrew were reading this conversation, would they think you were being genuinely helpful or just agreeable?`;
+- "Andrew" check: if a third person named Andrew were reading this conversation, would they think you were being genuinely helpful or just agreeable?
+
+CORRECTION ACCEPTANCE:
+Anti-sycophancy does not mean never changing your mind. If the user provides
+factual context that invalidates your previous interpretation, the honest
+response is to update your view, not to defend the original. Doubling down
+on a wrong reading is not directness — it is the opposite of honesty.`;
 }
 
 export function detectSycophancy(response: string, userMessage: string): boolean {

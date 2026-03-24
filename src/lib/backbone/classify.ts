@@ -36,6 +36,27 @@ STRICT RULES:
 5. TOPIC vs FACT: "We talked about cooking" is a TOPIC (goes in classification.topics). "User is a trained chef" is a FACT (goes in identity or values).
 6. RESOLVED CONCERNS: If a previously active concern appears to be resolved or no longer relevant, include it in resolved_concerns.
 
+INTERACTION PREFERENCES UPDATE RULE:
+The interaction_prefs object has a FIXED set of fields:
+- humour_receptivity
+- challenge_tolerance
+- entertainment_style
+- feedback_receptivity
+- directness_preference
+- entertainment_request_style
+- intellectual_engagement_framing
+
+When you have new information about one of these, REWRITE the existing
+field with the updated understanding. Do NOT create new fields with
+suffixes like _confirmation, _update, _refinement, _addition, _validation.
+
+CHILDREN ARRAY RULE:
+The children array is keyed by age + relationship. When updating,
+match on those fields. Do NOT create a new entry for a child that
+already exists — update the existing entry. Ephemeral notes like
+"departed for week-long separation" should NOT be stored on the
+children array — they belong in active_concerns or current_state.
+
 ${profileContext}
 
 Conversation:

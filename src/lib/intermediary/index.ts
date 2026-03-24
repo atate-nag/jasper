@@ -21,9 +21,12 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
   let model = 'claude-sonnet-4-6';
   let maxTokens = 2048;
 
+  // Recall-triggered messages always get at least standard tier
+  const recallBoost = directive.recallTriggered && directive.recallTier !== 'none';
+
   if (directive.communicativeIntent === 'distress') {
     tier = 'deep'; model = 'claude-opus-4-6'; maxTokens = 4096;
-  } else if (directive.communicativeIntent === 'connecting') {
+  } else if (directive.communicativeIntent === 'connecting' && !recallBoost) {
     tier = 'ambient'; model = 'claude-haiku-4-5-20251001'; maxTokens = 512;
   } else if (directive.communicativeIntent === 'requesting_input' && directive.emotionalArousal > 0.7) {
     tier = 'deep'; model = 'claude-opus-4-6'; maxTokens = 4096;
@@ -154,6 +157,29 @@ function buildPromptComponents(
       content: recallText,
       label: 'recalled_segments',
       tokenEstimate: est(recallText),
+    });
+  }
+
+  // Tier 3: Raw source turns (lower priority, expensive)
+  const segmentsWithTurns = personContext.recalledSegments.filter(
+    (s: { sourceTurns?: unknown[] }) => s.sourceTurns && (s.sourceTurns as unknown[]).length > 0
+  );
+  if (segmentsWithTurns.length > 0) {
+    const turnLines = segmentsWithTurns.map((s: { segmentText?: string; conversationDate?: string; sourceTurns?: Array<{ role: string; content: string }> }) => {
+      const date = s.conversationDate ? new Date(s.conversationDate) : new Date();
+      const timeAgo = formatTimeAgo(date);
+      const turns = (s.sourceTurns || [])
+        .map((t: { role: string; content: string }) => `${t.role === 'user' ? 'User' : 'Jasper'}: ${t.content}`)
+        .join('\n');
+      return `[Verbatim exchange from ${timeAgo}]\n${turns}`;
+    });
+
+    const turnsText = `SOURCE CONVERSATION EXCERPTS:\n${turnLines.join('\n\n')}`;
+    components.push({
+      priority: 55,
+      content: turnsText,
+      label: 'recalled_source_turns',
+      tokenEstimate: est(turnsText),
     });
   }
 
@@ -312,7 +338,9 @@ export async function steer(
         includeEmotionalContext: true,
       };
 
+      console.log(`[steer] Recall request: userId=${recallRequest.userId}, query="${recallRequest.query}", maxSegments=${recallRequest.maxSegments}`);
       const recallResult = await recall(recallRequest);
+      console.log(`[steer] Recall returned ${recallResult.segments.length} segments in ${recallResult.queryLatencyMs}ms`);
       // Enrich person context with recalled segments
       enrichedPersonContext = {
         ...personContext,
@@ -323,6 +351,21 @@ export async function steer(
           conversationDate: s.conversationDate.toISOString(),
         })),
       };
+      // Tier 3: If user asks for specific detail, pull raw source turns
+      if (directive.recallTier === 'deep' && recallResult.segments.length > 0) {
+        const { getSourceTurns } = await import('@/lib/backbone/recall');
+        const wantsDetail = /\b(exactly|specifically|what did (i|you) say|verbatim|word for word|actual)\b/i.test(userMessage);
+        if (wantsDetail) {
+          for (const seg of recallResult.segments.slice(0, 2)) {
+            if (seg.conversationId) {
+              try {
+                const turns = await getSourceTurns(seg.conversationId);
+                seg.sourceTurns = turns.slice(-10); // last 10 turns max
+              } catch { /* non-critical */ }
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error('[steer] Recall failed:', err);
     }

@@ -10,7 +10,7 @@ export async function getMemoryModule(): Promise<typeof import('./memory')> {
 export { createConversation, saveMessages, endConversation, getRecentConversations } from './conversations';
 export { classifyConversation, dedupCandidates } from './classify';
 export { summariseConversation } from './summarise';
-export { recallConversation, extractSegments, recall } from './recall';
+export { recallConversation, extractSegments, recall, getSourceTurns } from './recall';
 export type { SegmentExtraction, RecallRequest, RecallResult, RecalledSegment } from './recall';
 export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta } from './types';
 

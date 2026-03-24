@@ -37,13 +37,20 @@ import { createSpeechStream } from './src/lib/product/voice/stream-speak';
 // LLM
 import { chatStream } from './src/lib/llm/client';
 
+function isValidSpeech(transcription: string): boolean {
+  const cleaned = transcription
+    .replace(/[.\s,!?;:\-–—…'"()[\]{}]/g, '')
+    .trim();
+  return cleaned.length >= 3;
+}
+
 // --- State ---
 const USER_ID = '00000000-0000-0000-0000-000000000001';
 const history: Message[] = [];
 let profile: UserProfile;
 let conversationId: string | null = null;
 let recentConversations: ConversationSummary[] = [];
-let observeMode = false;
+let observeMode: false | 'compact' | 'verbose' = false;
 let voiceEnabled = process.argv.includes('--voice');
 let voiceListening = false;
 let activeActivity: Activity | null = null;
@@ -96,14 +103,17 @@ async function persistMessages(): Promise<void> {
 
 function observe(label: string, content: string): void {
   if (!observeMode) return;
-  const dim = '\x1b[2m';
-  const yellow = '\x1b[33m';
-  const reset = '\x1b[0m';
-  const sep = `${dim}${'─'.repeat(60)}${reset}`;
-  console.log(sep);
-  console.log(`${yellow}[${label}]${reset}`);
-  console.log(`${dim}${content}${reset}`);
-  console.log(sep);
+  if (observeMode === 'verbose') {
+    const dim = '\x1b[2m';
+    const yellow = '\x1b[33m';
+    const reset = '\x1b[0m';
+    const sep = `${dim}${'─'.repeat(60)}${reset}`;
+    console.log(sep);
+    console.log(`${yellow}[${label}]${reset}`);
+    console.log(`${dim}${content}${reset}`);
+    console.log(sep);
+  }
+  // compact mode is handled separately in handleMessage
 }
 
 // --- Message handling ---
@@ -141,31 +151,49 @@ async function handleMessage(input: string): Promise<string> {
   previousDirective = steering.responseDirective;
 
   // Observe output
-  observe('CLASSIFICATION', JSON.stringify(steering.responseDirective, null, 2));
-  observe('POLICY', `${steering.selectedPolicy.id} (${steering.selectedPolicy.name})`);
-  observe('MODEL', `TIER: ${steering.modelConfig.tier}\n${steering.modelConfig.provider}/${steering.modelConfig.model} (temp: ${steering.modelConfig.temperature}, max: ${steering.modelConfig.maxTokens})`);
-  observe('SYSTEM PROMPT', steering.systemPrompt);
-  observe('REFORMULATED', steering.reformulatedMessage);
-
-  if (steering.recallTriggered) {
-    observe('RECALL', `Tier: ${steering.responseDirective.recallTier}\nQuery: ${steering.responseDirective.recallQuery}\nSignals: ${steering.responseDirective.recallSignals?.join(', ') || 'none'}`);
+  if (observeMode === 'compact') {
+    const d = steering.responseDirective;
+    const dim = '\x1b[2m';
+    const yellow = '\x1b[33m';
+    const cyan = '\x1b[36m';
+    const reset = '\x1b[0m';
+    console.log(`${yellow}[CLASSIFICATION]${reset} intent: ${d.communicativeIntent} | valence: ${d.emotionalValence} | arousal: ${d.emotionalArousal} | posture: ${d.recommendedPostureClass} | length: ${d.recommendedResponseLength} | challenge: ${d.challengeAppropriate ? 'yes' : 'no'} | dispreferred: ${d.dispreferred ? 'yes' : 'no'} | conf: ${d.confidence}`);
+    console.log(`  ${dim}→ "${d.rationale.substring(0, 120)}${d.rationale.length > 120 ? '...' : ''}"${reset}`);
+    console.log(`${yellow}[POLICY]${reset} ${steering.selectedPolicy.id}`);
+    console.log(`${yellow}[MODEL]${reset} ${steering.modelConfig.model} (${steering.modelConfig.tier}) temp: ${steering.modelConfig.temperature} max: ${steering.modelConfig.maxTokens}`);
+    if (steering.recallTriggered) {
+      console.log(`${yellow}[RECALL]${reset} ${d.recallTier}: "${d.recallQuery || 'none'}"`);
+    } else {
+      console.log(`${yellow}[RECALL]${reset} none`);
+    }
+    console.log('');
+  } else if (observeMode === 'verbose') {
+    observe('CLASSIFICATION', JSON.stringify(steering.responseDirective, null, 2));
+    observe('POLICY', `${steering.selectedPolicy.id} (${steering.selectedPolicy.name})`);
+    observe('MODEL', `TIER: ${steering.modelConfig.tier}\n${steering.modelConfig.provider}/${steering.modelConfig.model} (temp: ${steering.modelConfig.temperature}, max: ${steering.modelConfig.maxTokens})`);
+    observe('SYSTEM PROMPT', steering.systemPrompt);
+    observe('REFORMULATED', steering.reformulatedMessage);
+    if (steering.recallTriggered) {
+      observe('RECALL', `Tier: ${steering.responseDirective.recallTier}\nQuery: ${steering.responseDirective.recallQuery}\nSignals: ${steering.responseDirective.recallSignals?.join(', ') || 'none'}`);
+    }
   }
 
   // Stream response
   const speechStream = voiceEnabled ? createSpeechStream() : null;
 
-  if (!observeMode) process.stdout.write('\n\x1b[32mai:\x1b[0m ');
+  const showOutput = !observeMode || observeMode === 'compact';
+  if (showOutput) process.stdout.write('\n\x1b[32mai:\x1b[0m ');
   const reply = await chatStream(
     steering.modelConfig,
     steering.systemPrompt,
     steering.reformulatedMessage,
     steering.responseDirective.communicativeIntent === 'connecting' ? [] : history,
     (token) => {
-      if (!observeMode) process.stdout.write(token);
+      if (showOutput) process.stdout.write(token);
       if (speechStream) speechStream.push(token);
     },
   );
-  if (!observeMode) process.stdout.write('\n');
+  if (showOutput) process.stdout.write('\n');
 
   if (speechStream) {
     speechStream.end();
@@ -237,15 +265,16 @@ interests: ${(profile.values?.core_values as string[])?.join(', ') || 'unknown'}
 
   const speechStream = voiceEnabled ? createSpeechStream() : null;
 
-  if (!observeMode) process.stdout.write('\n\x1b[32mai:\x1b[0m ');
+  const showActivityOutput = !observeMode || observeMode === 'compact';
+  if (showActivityOutput) process.stdout.write('\n\x1b[32mai:\x1b[0m ');
   const reply = await chatStream(
     tierConfig, systemPrompt, input, activityHistory,
     (token) => {
-      if (!observeMode) process.stdout.write(token);
+      if (showActivityOutput) process.stdout.write(token);
       if (speechStream) speechStream.push(token);
     },
   );
-  if (!observeMode) process.stdout.write('\n');
+  if (showActivityOutput) process.stdout.write('\n');
 
   if (speechStream) {
     speechStream.end();
@@ -333,7 +362,7 @@ async function voiceListenLoop(): Promise<void> {
     process.stdout.write('\x1b[2m\u23F3 Transcribing...\x1b[0m ');
     const text = await transcribe(audioPath);
 
-    if (!text || text.length < 2) {
+    if (!text || !isValidSpeech(text)) {
       console.log('[no speech detected]');
       voiceListening = false;
       if (voiceEnabled) setTimeout(() => voiceListenLoop(), 300);
@@ -407,9 +436,15 @@ async function main(): Promise<void> {
         return prompt();
       }
 
-      if (trimmed === '/observe') {
-        observeMode = !observeMode;
-        console.log(`  observe mode: ${observeMode ? 'ON' : 'OFF'}\n`);
+      if (trimmed === '/observe' || trimmed === '/observe compact' || trimmed === '/observe full' || trimmed === '/observe verbose' || trimmed === '/observe off') {
+        if (trimmed === '/observe off') {
+          observeMode = false;
+        } else if (trimmed === '/observe full' || trimmed === '/observe verbose') {
+          observeMode = 'verbose';
+        } else {
+          observeMode = observeMode ? false : 'compact';
+        }
+        console.log(`  observe mode: ${observeMode || 'OFF'}\n`);
         return prompt();
       }
 

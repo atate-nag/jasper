@@ -45,6 +45,7 @@ export interface RecalledSegment {
   emotionalValence?: number;
   conversationDate: Date;
   conversationId: string;
+  sourceTurns?: Message[];
 }
 
 // Singletons
@@ -234,36 +235,24 @@ async function vectorSearch(
   userId: string,
   queryEmbedding: number[],
   limit: number,
-  timeWindow?: { after: Date; before: Date },
-  topicFilter?: string[],
+  _timeWindow?: { after: Date; before: Date },
+  _topicFilter?: string[],
   importanceFloor?: number,
 ): Promise<VectorCandidate[]> {
-  // Use Supabase RPC for pgvector similarity search
-  // This requires a database function — fall back to manual query if not available
-  let query = getSupabase()
+  // Use pgvector via Supabase's vector column support
+  // Pass the embedding as a plain array — Supabase JS handles vector serialisation
+  const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+  const { data, error } = await getSupabaseAdmin()
     .rpc('match_segments', {
-      query_embedding: JSON.stringify(queryEmbedding),
+      query_embedding: embeddingStr,
       match_user_id: userId,
       match_count: limit,
       min_importance: importanceFloor ?? 3,
     });
 
-  const { data, error } = await query;
-
-  if (error) {
-    // Fallback: basic query without vector search (less accurate but works)
-    console.warn('[recall] Vector search RPC failed, falling back to basic query:', error.message);
-    const fallback = await getSupabase()
-      .from('conversation_segments')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('importance_score', importanceFloor ?? 3)
-      .order('importance_score', { ascending: false })
-      .limit(limit);
-
-    if (fallback.error || !fallback.data) return [];
-
-    return fallback.data.map((row: Record<string, unknown>) => ({
+  if (!error && data && data.length > 0) {
+    return (data as Record<string, unknown>[]).map(row => ({
       id: row.id as string,
       content: row.content as string,
       importanceScore: row.importance_score as number,
@@ -272,21 +261,68 @@ async function vectorSearch(
       emotionalValence: row.emotional_valence as number | null,
       conversationDate: new Date(row.conversation_date as string),
       conversationId: row.conversation_id as string,
-      cosineSimilarity: 0.5, // default when no vector search available
+      cosineSimilarity: (row.similarity as number) ?? 0.5,
     }));
   }
 
-  return (data || []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    content: row.content as string,
-    importanceScore: row.importance_score as number,
-    segmentType: row.segment_type as string,
-    topicLabels: (row.topic_labels as string[]) || [],
-    emotionalValence: row.emotional_valence as number | null,
-    conversationDate: new Date(row.conversation_date as string),
-    conversationId: row.conversation_id as string,
-    cosineSimilarity: (row.similarity as number) ?? 0.5,
-  }));
+  if (error) {
+    console.warn('[recall] Vector search RPC failed:', error.message);
+  }
+
+  // Fallback: fetch all segments for this user and compute similarity in JS
+  console.log('[recall] Using JS-side similarity scoring fallback');
+  const { data: allSegments, error: fallbackError } = await getSupabaseAdmin()
+    .from('conversation_segments')
+    .select('id, content, importance_score, segment_type, topic_labels, emotional_valence, conversation_date, conversation_id, embedding')
+    .eq('user_id', userId)
+    .gte('importance_score', importanceFloor ?? 3)
+    .order('importance_score', { ascending: false })
+    .limit(100);
+
+  if (fallbackError || !allSegments) return [];
+
+  // Compute cosine similarity in JS
+  return allSegments
+    .filter((row: Record<string, unknown>) => row.embedding != null)
+    .map((row: Record<string, unknown>) => {
+      let storedEmbedding: number[];
+      const rawEmb = row.embedding;
+      if (typeof rawEmb === 'string') {
+        storedEmbedding = JSON.parse(rawEmb);
+      } else if (Array.isArray(rawEmb)) {
+        storedEmbedding = rawEmb as number[];
+      } else {
+        return null;
+      }
+
+      const sim = cosineSimilarity(queryEmbedding, storedEmbedding);
+      return {
+        id: row.id as string,
+        content: row.content as string,
+        importanceScore: row.importance_score as number,
+        segmentType: row.segment_type as string,
+        topicLabels: (row.topic_labels as string[]) || [],
+        emotionalValence: row.emotional_valence as number | null,
+        conversationDate: new Date(row.conversation_date as string),
+        conversationId: row.conversation_id as string,
+        cosineSimilarity: sim,
+      };
+    })
+    .filter((x): x is VectorCandidate => x !== null)
+    .sort((a, b) => b.cosineSimilarity - a.cosineSimilarity)
+    .slice(0, limit);
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
 }
 
 async function updateAccessTimes(segmentIds: string[]): Promise<void> {
@@ -313,6 +349,11 @@ export async function recall(request: RecallRequest): Promise<RecallResult> {
     request.topicFilter,
     request.importanceFloor,
   );
+
+  console.log(`[recall] Vector search returned ${candidates.length} candidates`);
+  if (candidates.length > 0) {
+    console.log(`[recall] Top candidate: sim=${candidates[0].cosineSimilarity.toFixed(3)} "${candidates[0].content.slice(0, 60)}..."`);
+  }
 
   // 3. Score with Generative Agents formula
   const now = new Date();
@@ -394,6 +435,33 @@ export async function recallConversation(
     }));
   } catch (err) {
     console.error('[recall] Recall failed:', err);
+    return [];
+  }
+}
+
+/**
+ * Tier 3: Retrieve raw conversation turns for a specific segment.
+ * Follows conversation_id + turn_range back to the conversations table.
+ */
+export async function getSourceTurns(
+  conversationId: string,
+  turnRange?: [number, number],
+): Promise<Message[]> {
+  try {
+    const { data, error } = await getSupabase()
+      .from('conversations')
+      .select('messages')
+      .eq('id', conversationId)
+      .single();
+
+    if (error || !data?.messages) return [];
+
+    const messages = data.messages as Message[];
+    if (turnRange) {
+      return messages.slice(turnRange[0], Math.min(turnRange[1] + 1, messages.length));
+    }
+    return messages;
+  } catch {
     return [];
   }
 }

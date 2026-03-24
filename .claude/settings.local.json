@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/001_user_profiles.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/002_conversations.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/003_turn_logs.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/004_policy_library.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/005_bandit_state.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/supabase/migrations/006_conversation_segments.sql:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/.env.local.example:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(ls:*)",
+      "Bash(/Users/adrian/SOFTWARE/jasper/.env.local:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)"
+    ]
+  }
+}

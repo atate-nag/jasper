@@ -55,6 +55,12 @@ export function selectPolicy(
   );
   if (depthMatches.length > 0) candidates = depthMatches;
 
+  // 2.5. Exclude distress policy unless intent is actually distress
+  if (directive.communicativeIntent !== 'distress') {
+    const nonDistress = candidates.filter(p => !p.id.includes('distress'));
+    if (nonDistress.length > 0) candidates = nonDistress;
+  }
+
   // 3. Refine based on directive specifics
   if (candidates.length > 1) {
     // For warm_reflective: match intent to specific variant
