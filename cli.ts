@@ -45,7 +45,7 @@ function isValidSpeech(transcription: string): boolean {
 }
 
 // --- State ---
-const USER_ID = '00000000-0000-0000-0000-000000000001';
+const USER_ID = process.env.JASPER_USER_ID || '3a1272b1-577c-42a4-801e-e952fed68971';
 const history: Message[] = [];
 let profile: UserProfile;
 let conversationId: string | null = null;

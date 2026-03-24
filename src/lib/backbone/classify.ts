@@ -50,6 +50,20 @@ When you have new information about one of these, REWRITE the existing
 field with the updated understanding. Do NOT create new fields with
 suffixes like _confirmation, _update, _refinement, _addition, _validation.
 
+STRICT SCHEMA RULE — THIS IS CRITICAL:
+The profile has a FIXED schema. The ONLY permitted fields are:
+- identity: { name, age_range, location, occupation, living_situation, neurodivergence }
+- values: { core_values[], priorities[], what_matters_most }
+- patterns: { stress_responses[], decision_patterns[], avoidance_patterns[], growth_edges[], humor_engagement[] }
+- relationships: { partner{}, children[], colleagues[], key_dynamics[] }
+- current_state: { active_concerns[], mood_trajectory, recent_wins[], open_questions[] }
+- interaction_prefs: { humour_receptivity, challenge_tolerance, entertainment_style, feedback_receptivity, directness_preference, entertainment_request_style, intellectual_engagement_framing }
+
+Do NOT invent new field names. Do NOT create fields like "testing_methodology",
+"emotional_processing", "cephalopod_metaphor_extension", "place_as_relational_anchor",
+"late_night_vulnerability_pattern", etc. These pollute the profile with unbounded keys.
+If an observation doesn't fit an existing field, it belongs in the conversation summary, not the profile.
+
 CHILDREN ARRAY RULE:
 The children array is keyed by age + relationship. When updating,
 match on those fields. Do NOT create a new entry for a child that

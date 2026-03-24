@@ -17,7 +17,8 @@
       "Bash(npm run:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }

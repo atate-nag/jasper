@@ -88,6 +88,7 @@ export async function POST(req: Request): Promise<Response> {
       timestamp: new Date().toISOString(),
     }));
 
+  try {
   // 1. Backbone: get person context
   const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
 
@@ -141,4 +142,13 @@ export async function POST(req: Request): Promise<Response> {
       'X-Jasper-Tier': steering.modelConfig.tier,
     },
   });
+
+  } catch (err) {
+    console.error('[chat] Pipeline error:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }

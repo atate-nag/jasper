@@ -198,18 +198,24 @@ function buildPromptComponents(
     if (!isLight) {
       // Only include heavy psychological sections for non-light intents
       const patternParts: string[] = [];
+      // Helper: safely join array or return string as-is
+      const joinField = (val: unknown): string => {
+        if (Array.isArray(val)) return val.join('; ');
+        if (typeof val === 'string') return val;
+        return String(val);
+      };
 
       if (patterns.growth_edges?.length) {
-        patternParts.push(`Growth edges: ${patterns.growth_edges.join('; ')}`);
+        patternParts.push(`Growth edges: ${joinField(patterns.growth_edges)}`);
       }
       if (patterns.stress_responses?.length && (isEmotional || isAnalytical)) {
-        patternParts.push(`Stress responses: ${patterns.stress_responses.join('; ')}`);
+        patternParts.push(`Stress responses: ${joinField(patterns.stress_responses)}`);
       }
       if (patterns.avoidance_patterns?.length && isAnalytical) {
-        patternParts.push(`Avoidance patterns: ${patterns.avoidance_patterns.join('; ')}`);
+        patternParts.push(`Avoidance patterns: ${joinField(patterns.avoidance_patterns)}`);
       }
       if (patterns.decision_patterns?.length && isAnalytical) {
-        patternParts.push(`Decision patterns: ${patterns.decision_patterns.join('; ')}`);
+        patternParts.push(`Decision patterns: ${joinField(patterns.decision_patterns)}`);
       }
 
       if (patternParts.length > 0) {
