@@ -175,7 +175,6 @@ export async function POST(req: Request): Promise<Response> {
     headers: {
       'X-Jasper-Policy': steering.selectedPolicy.id,
       'X-Jasper-Tier': steering.modelConfig.tier,
-      'X-Jasper-Observe': JSON.stringify(observeData),
     },
   });
 

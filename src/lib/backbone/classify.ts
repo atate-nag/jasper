@@ -106,9 +106,12 @@ Respond with ONLY valid JSON in this exact format:
     const text =
       response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // Extract JSON from response (handle markdown code blocks)
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, text];
-    const parsed = JSON.parse(jsonMatch[1]?.trim() ?? text.trim());
+    // Strip markdown fencing if present
+    const cleaned = text
+      .replace(/^```(?:json)?\s*\n?/i, '')
+      .replace(/\n?```\s*$/i, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
 
     return {
       classification: parsed.classification ?? {},
