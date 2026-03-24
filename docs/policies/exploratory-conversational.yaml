@@ -33,7 +33,7 @@ response_structure:
   dispreferred: false
 
 constraints:
-  max_length: "long"
+  max_length: "medium"
   reflection_minimum: false
   challenge_permitted: true
   humour_permitted: true

@@ -37,10 +37,15 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
     tier = 'standard'; model = 'claude-sonnet-4-6'; maxTokens = 2048;
   }
 
-  // Adjust maxTokens based on recommended length — floors, not ceilings
-  if (directive.recommendedResponseLength === 'minimal') maxTokens = Math.min(maxTokens, 256);
-  else if (directive.recommendedResponseLength === 'short') maxTokens = Math.min(maxTokens, 1024);
-  else if (directive.recommendedResponseLength === 'long') maxTokens = Math.max(maxTokens, 4096);
+  // Apply policy length constraints — these are hard caps
+  const LENGTH_TO_TOKENS: Record<string, number> = {
+    minimal: 60,     // 1-2 sentences, ~40-50 words
+    short: 200,      // 1 paragraph, ~100-150 words
+    medium: 400,     // 2 short paragraphs, ~200-300 words
+    long: 800,       // 3 paragraphs max, ~400-600 words
+  };
+  const lengthCap = LENGTH_TO_TOKENS[directive.recommendedResponseLength] ?? 400;
+  maxTokens = Math.min(maxTokens, lengthCap);
 
   const tempRanges = { ambient: [0.7, 1.0], standard: [0.6, 0.95], deep: [0.5, 0.8] };
   const [min, max] = tempRanges[tier];
@@ -70,6 +75,7 @@ function buildPromptComponents(
   policy: Policy,
   directive: ResponseDirective,
   sessionHistory: Message[],
+  voiceMode: boolean = false,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
@@ -341,6 +347,22 @@ function buildPromptComponents(
     });
   }
 
+  // Voice mode modifier
+  if (voiceMode) {
+    components.push({
+      priority: 85,
+      content: `VOICE MODE ACTIVE:
+You are speaking out loud. Your response will be converted to speech.
+- Never use markdown: no **bold**, no headers, no bullet points, no lists
+- Keep sentences short and direct
+- Maximum 4-6 sentences for most turns
+- Use verbal emphasis through word choice, not formatting
+- No parenthetical asides`,
+      label: 'voice_modifier',
+      tokenEstimate: 60,
+    });
+  }
+
   return components;
 }
 
@@ -351,6 +373,7 @@ export async function steer(
   sessionHistory: Message[],
   previousDirective?: ResponseDirective,
   previousConversationState?: ConversationState,
+  options?: { voiceMode?: boolean },
 ): Promise<SteeringResult> {
   // 1. Classify
   const rawDirective = await classify(userMessage, personContext, sessionHistory, previousDirective);
@@ -417,7 +440,7 @@ export async function steer(
   const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
 
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message

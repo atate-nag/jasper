@@ -4,6 +4,7 @@ import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRef, useEffect, useState, useMemo, useCallback, type FormEvent } from 'react';
 import { VoiceInput } from './voice-input';
+import { AudioPlaybackQueue } from './audio-playback-queue';
 
 function getTextContent(message: { parts?: Array<{ type: string; text?: string }> }): string {
   if (!message.parts) return '';
@@ -38,6 +39,7 @@ export function ChatUI() {
   const { messages, sendMessage, status } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [observeMode, setObserveMode] = useState(false);
@@ -79,34 +81,67 @@ export function ChatUI() {
     inputRef.current?.focus();
   }, []);
 
-  // TTS for assistant responses
-  const lastAssistantRef = useRef<string>('');
-  useEffect(() => {
-    if (!voiceEnabled || isLoading) return;
-    const lastAssistant = messages.filter(m => m.role === 'assistant').pop();
-    if (!lastAssistant) return;
-    const text = getTextContent(lastAssistant);
-    if (text && text !== lastAssistantRef.current) {
-      lastAssistantRef.current = text;
-      fetch('/api/voice/synthesize', {
+  // TTS is now handled by sentence-level streaming via /api/chat/voice
+  // See handleVoiceSubmit for the implementation
+
+  async function handleVoiceSubmit(text: string) {
+    if (!audioQueueRef.current) {
+      audioQueueRef.current = new AudioPlaybackQueue();
+      audioQueueRef.current.initFromGesture();
+    }
+    audioQueueRef.current.reset();
+
+    // We need to manually handle the voice stream since it's a custom SSE format
+    try {
+      const res = await fetch('/api/chat/voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-        .then(res => res.arrayBuffer())
-        .then(buf => {
-          const blob = new Blob([buf], { type: 'audio/mpeg' });
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.play().catch(() => {});
-          audio.onended = () => URL.revokeObjectURL(url);
-        })
-        .catch(() => {});
+        body: JSON.stringify({
+          messages: [...messages.map(m => ({ role: m.role, parts: m.parts })), { role: 'user', parts: [{ type: 'text', text }] }],
+        }),
+      });
+
+      if (!res.ok || !res.body) return;
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop()!;
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6);
+          if (data === '[DONE]') break;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'audio') {
+              audioQueueRef.current?.enqueue(parsed.index, parsed.audio);
+            }
+            // Text is handled by the normal useChat flow
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch (err) {
+      console.error('[voice] Stream error:', err);
     }
-  }, [messages, isLoading, voiceEnabled]);
+  }
 
   function handleVoiceTranscript(text: string) {
-    sendMessage({ text });
+    if (voiceEnabled) {
+      // Use voice route for sentence-level TTS
+      sendMessage({ text }); // still send through normal chat for display
+      handleVoiceSubmit(text); // also stream audio
+    } else {
+      sendMessage({ text });
+    }
   }
 
   function handleSubmit(e: FormEvent) {
@@ -143,7 +178,16 @@ export function ChatUI() {
             {observeMode ? 'Observe' : 'Observe'}
           </button>
           <button
-            onClick={() => setVoiceEnabled(v => !v)}
+            onClick={() => {
+              setVoiceEnabled(v => {
+                const newVal = !v;
+                if (newVal && !audioQueueRef.current) {
+                  audioQueueRef.current = new AudioPlaybackQueue();
+                  audioQueueRef.current.initFromGesture();
+                }
+                return newVal;
+              });
+            }}
             className={`text-sm px-3 py-1 rounded-full transition-colors ${
               voiceEnabled ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
             }`}

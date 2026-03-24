@@ -24,7 +24,7 @@ response_structure:
   dispreferred: false
 
 constraints:
-  max_length: "medium"
+  max_length: "short"
   reflection_minimum: true
   challenge_permitted: false
   humour_permitted: true
