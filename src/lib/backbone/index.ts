@@ -1,7 +1,7 @@
 // LAYER A: Backbone — Person Model
 // This layer MUST NOT import from intermediary/ or product/
 
-export { getProfile, upsertProfile, mergeProfileUpdates, removeResolvedConcerns, patchProfileField, buildClassifierSummary, compressProfile } from './profile';
+export { getProfile, upsertProfile, mergeProfileUpdates, removeResolvedConcerns, patchProfileField, buildClassifierSummary, compressProfile, defaultCalibration } from './profile';
 // Memory exports are dynamic — mem0ai has many optional peer deps that break Next.js bundling.
 // Use: const { addToMemory } = await import('@/lib/backbone/memory');
 export async function getMemoryModule(): Promise<typeof import('./memory')> {
@@ -12,13 +12,14 @@ export { classifyConversation, dedupCandidates } from './classify';
 export { summariseConversation } from './summarise';
 export { recallConversation, extractSegments, recall, getSourceTurns } from './recall';
 export type { SegmentExtraction, RecallRequest, RecallResult, RecalledSegment } from './recall';
-export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta } from './types';
+export { extractSessionSignals, updateCalibration, saveCalibration } from './calibrate';
+export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta, CalibrationParameters, CalibrationSignals, CommunicationStyle } from './types';
 
-import { getProfile } from './profile';
+import { getProfile, defaultCalibration } from './profile';
 // searchMemories is dynamically imported to avoid mem0ai bundling issues
 import { getRecentConversations } from './conversations';
 import { recallConversation } from './recall';
-import type { PersonContext } from './types';
+import type { PersonContext, CalibrationParameters } from './types';
 import type { Message } from '@/types/message';
 
 function bareProfile(userId: string) {
@@ -38,6 +39,12 @@ export async function getPersonContext(
 ): Promise<PersonContext> {
   // 1. Load profile
   const profile = await getProfile(userId) ?? bareProfile(userId);
+
+  // Load calibration parameters (from profile's relationship_meta or default)
+  const calibrationData = (profile as Record<string, unknown>).calibration;
+  const calibration = calibrationData
+    ? calibrationData as CalibrationParameters
+    : defaultCalibration();
 
   // 2. Search Mem0 for relevant memories (gated by relevance threshold)
   const isTrivial = currentMessage.split(/\s+/).length < 5 && /^(hi|hey|hello|bye|later|thanks|cheers)\b/i.test(currentMessage.trim());
@@ -84,5 +91,6 @@ export async function getPersonContext(
       lastConversationDate: sortedByDate[sortedByDate.length - 1]?.started_at ?? null,
       totalMessages,
     },
+    calibration,
   };
 }

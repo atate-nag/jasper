@@ -37,6 +37,13 @@ export interface ResponseDirective {
   dispreferred: boolean;
   confidence: number;
   rationale: string;
+  communicationStyle: {
+    verbosity: 'terse' | 'moderate' | 'verbose';
+    formality: 'casual' | 'moderate' | 'formal';
+    humourPresent: boolean;
+    disclosureLevel: 'none' | 'light' | 'substantive';
+    energy: 'low' | 'moderate' | 'high';
+  };
 }
 
 export interface Policy {

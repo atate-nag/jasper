@@ -1,5 +1,5 @@
 import { getSupabase } from '@/lib/supabase';
-import type { UserProfile, UserProfileUpdate, RelationshipMeta } from './types';
+import type { UserProfile, UserProfileUpdate, RelationshipMeta, CalibrationParameters } from './types';
 import { dedupCandidates } from './classify';
 
 // ---------------------------------------------------------------------------
@@ -401,6 +401,38 @@ export async function compressProfile(userId: string): Promise<void> {
       await replaceProfileSection(userId, section, cleaned);
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// defaultCalibration — cold-start calibration parameters
+// ---------------------------------------------------------------------------
+
+export function defaultCalibration(): CalibrationParameters {
+  return {
+    // Beta(2, 5) → mean 0.29, conservative, skewed toward caution
+    challengeCeiling: 0.29,
+    challengeAlpha: 2,
+    challengeBeta: 5,
+    // Beta(3, 3) → mean 0.50, neutral, high uncertainty
+    humourTolerance: 0.50,
+    humourAlpha: 3,
+    humourBeta: 3,
+    // Beta(3, 4) → mean 0.43, slightly cautious
+    directnessPreference: 0.43,
+    directnessAlpha: 3,
+    directnessBeta: 4,
+    // Beta(2, 4) → mean 0.33, conservative
+    disclosureComfort: 0.33,
+    disclosureAlpha: 2,
+    disclosureBeta: 4,
+    // Beta(4, 2) → mean 0.67, warmth-first default
+    warmthNeed: 0.67,
+    warmthAlpha: 4,
+    warmthBeta: 2,
+    preferredRegister: 'warm_reflective',
+    onboardingCompleted: false,
+    voicePreference: null,
+  };
 }
 
 const SUFFIXES = ['_addition', '_refinement', '_update', '_confirmation', '_deletion', '_noted'];

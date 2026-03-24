@@ -114,4 +114,46 @@ export interface PersonContext {
     startedAt: Date;
   };
   relationshipMeta: RelationshipMeta;
+  calibration?: CalibrationParameters;
+}
+
+export interface CommunicationStyle {
+  verbosity: 'terse' | 'moderate' | 'verbose';
+  formality: 'casual' | 'moderate' | 'formal';
+  humourPresent: boolean;
+  disclosureLevel: 'none' | 'light' | 'substantive';
+  energy: 'low' | 'moderate' | 'high';
+}
+
+export interface CalibrationSignals {
+  humourInstances: number;
+  challengeEngaged: number;
+  challengeDeflected: number;
+  correctionsGiven: number;
+  unpromptedDisclosures: number;
+  sessionsCompleted: number;
+  sessionsAbandoned: number;
+  averageTurnsPerSession: number;
+  registersSustained: Record<string, number>;
+}
+
+export interface CalibrationParameters {
+  challengeCeiling: number;      // Beta mean 0-1
+  challengeAlpha: number;        // Beta distribution alpha
+  challengeBeta: number;         // Beta distribution beta
+  humourTolerance: number;       // Beta mean 0-1
+  humourAlpha: number;
+  humourBeta: number;
+  directnessPreference: number;  // Beta mean 0-1
+  directnessAlpha: number;
+  directnessBeta: number;
+  disclosureComfort: number;     // Beta mean 0-1
+  disclosureAlpha: number;
+  disclosureBeta: number;
+  warmthNeed: number;            // Beta mean 0-1
+  warmthAlpha: number;
+  warmthBeta: number;
+  preferredRegister: string;
+  onboardingCompleted: boolean;
+  voicePreference: 'male' | 'female' | null;
 }

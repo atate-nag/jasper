@@ -166,6 +166,14 @@ async function handleMessage(input: string): Promise<string> {
     } else {
       console.log(`${yellow}[RECALL]${reset} none`);
     }
+    // Calibration state
+    const cal = personContext.calibration;
+    if (cal) {
+      const depth = personContext.relationshipMeta.conversationCount <= 1 ? 'first_encounter' :
+        personContext.relationshipMeta.conversationCount <= 5 ? 'early' :
+        personContext.relationshipMeta.conversationCount <= 15 ? 'developing' : 'established';
+      console.log(`${yellow}[CALIBRATION]${reset} depth: ${depth} | challenge: ${cal.challengeCeiling.toFixed(2)} | humour: ${cal.humourTolerance.toFixed(2)} | directness: ${cal.directnessPreference.toFixed(2)}`);
+    }
     console.log('');
   } else if (observeMode === 'verbose') {
     observe('CLASSIFICATION', JSON.stringify(steering.responseDirective, null, 2));
@@ -324,6 +332,21 @@ async function shutdown(): Promise<void> {
           console.log('  segments extracted for deep recall');
         } catch (err) {
           console.error('  segment extraction failed:', err instanceof Error ? err.message : err);
+        }
+
+        // Calibrate interaction parameters based on session signals
+        try {
+          const { extractSessionSignals, updateCalibration, saveCalibration } = await import('./src/lib/backbone/calibrate');
+          const { getProfile } = await import('./src/lib/backbone/profile');
+          const { defaultCalibration } = await import('./src/lib/backbone/profile');
+          const currentProfile = await getProfile(USER_ID);
+          const currentCal = (currentProfile as any)?.calibration || defaultCalibration();
+          const signals = extractSessionSignals(history);
+          const updatedCal = updateCalibration(currentCal, signals);
+          await saveCalibration(USER_ID, updatedCal);
+          console.log(`  calibration updated: challenge=${updatedCal.challengeCeiling.toFixed(2)} humour=${updatedCal.humourTolerance.toFixed(2)} directness=${updatedCal.directnessPreference.toFixed(2)}`);
+        } catch (err) {
+          console.error('  calibration update failed:', err instanceof Error ? err.message : err);
         }
 
         if (supabaseReady && conversationId) {

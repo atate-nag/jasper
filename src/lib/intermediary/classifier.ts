@@ -57,7 +57,14 @@ Return a JSON object with EXACTLY these fields:
   "challengeAppropriate": <boolean>,
   "dispreferred": <boolean - true if the best response goes against what user wants to hear>,
   "confidence": <float 0 to 1>,
-  "rationale": "<brief explanation of your reading>"
+  "rationale": "<brief explanation of your reading>",
+  "communicationStyle": {
+    "verbosity": "terse" | "moderate" | "verbose",
+    "formality": "casual" | "moderate" | "formal",
+    "humourPresent": <boolean>,
+    "disclosureLevel": "none" | "light" | "substantive",
+    "energy": "low" | "moderate" | "high"
+  }
 }
 
 GUIDELINES:
@@ -152,6 +159,13 @@ Return ONLY valid JSON.`;
       dispreferred: false,
       confidence: 0.3,
       rationale: 'Fallback: classification failed, defaulting to warm-reflective',
+      communicationStyle: {
+        verbosity: 'moderate',
+        formality: 'moderate',
+        humourPresent: false,
+        disclosureLevel: 'none',
+        energy: 'moderate',
+      },
     };
   }
 }
