@@ -6,6 +6,7 @@ import { steer } from '@/lib/intermediary';
 import { JASPER } from '@/lib/product/identity';
 import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
+import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
 
 export const maxDuration = 60;
 
@@ -97,6 +98,9 @@ export async function POST(req: Request): Promise<Response> {
       .maybeSingle();
     const voice = profile?.voice_preference || 'fable';
 
+    const conversationId = await getOrCreateConversation(user.id);
+    const responseStart = Date.now();
+
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,
@@ -109,6 +113,7 @@ export async function POST(req: Request): Promise<Response> {
     const stream = new ReadableStream({
       async start(controller) {
         let sentenceBuffer = '';
+        let fullText = '';
         let sentenceIndex = 0;
         const pendingTTS: Promise<void>[] = [];
 
@@ -119,6 +124,7 @@ export async function POST(req: Request): Promise<Response> {
               `data: ${JSON.stringify({ type: 'text', content: chunk })}\n\n`
             ));
 
+            fullText += chunk;
             sentenceBuffer += chunk;
 
             const boundary = findSentenceBoundary(sentenceBuffer);
@@ -159,6 +165,13 @@ export async function POST(req: Request): Promise<Response> {
 
           // Wait for all pending TTS
           await Promise.allSettled(pendingTTS);
+
+          // Post-response: persist, log, classify, extract — same as text route
+          const responseLatencyMs = Date.now() - responseStart;
+          handlePostResponse(
+            user.id, conversationId, sessionHistory,
+            lastUserMessage, fullText, steering, responseLatencyMs,
+          ).catch(console.error);
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
