@@ -1,13 +1,17 @@
-import { getPersonContext, saveMessages, createConversation } from '@/lib/backbone';
+import { streamText } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+import { createClient } from '@/lib/supabase/server';
+import { getPersonContext } from '@/lib/backbone';
 import { classifyConversation } from '@/lib/backbone/classify';
 import { mergeProfileUpdates } from '@/lib/backbone/profile';
 import { steer } from '@/lib/intermediary';
 import { JASPER } from '@/lib/product/identity';
-import { chatStream } from '@/lib/llm/client';
 import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { createHash } from 'crypto';
-import { getSupabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
+
+export const maxDuration = 60;
 
 async function logTurn(
   userId: string,
@@ -16,17 +20,15 @@ async function logTurn(
   userMessage: string,
   steering: Awaited<ReturnType<typeof steer>>,
   assistantResponse: string,
-  classificationLatencyMs: number,
   responseLatencyMs: number,
 ): Promise<void> {
   try {
-    await getSupabase().from('turn_logs').insert({
+    await getSupabaseAdmin().from('turn_logs').insert({
       user_id: userId,
       conversation_id: conversationId,
       turn_number: turnNumber,
       user_message: userMessage,
       response_directive: steering.responseDirective,
-      classification_latency_ms: classificationLatencyMs,
       selected_policy_id: steering.selectedPolicy.id,
       exploration_flag: false,
       system_prompt_hash: createHash('sha256').update(steering.systemPrompt).digest('hex').slice(0, 16),
@@ -36,118 +38,107 @@ async function logTurn(
       response_latency_ms: responseLatencyMs,
     });
   } catch (err) {
-    console.error('[turn_log] Failed to log turn:', err);
+    console.error('[turn_log] Failed:', err);
   }
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const body = await req.json();
-  const {
-    userId,
-    message,
-    conversationId,
-    sessionHistory = [],
-    previousDirective,
-    turnNumber = 0,
-  } = body as {
-    userId: string;
-    message: string;
-    conversationId?: string;
-    sessionHistory?: Message[];
-    previousDirective?: ResponseDirective;
-    turnNumber?: number;
-  };
-
-  if (!userId || !message) {
-    return new Response(JSON.stringify({ error: 'userId and message are required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // Auth check — defence in depth, don't rely on middleware alone
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return new Response('Unauthorized', { status: 401 });
   }
 
-  // 1. Get person context
-  const classifyStart = Date.now();
-  const personContext = await getPersonContext(userId, message, sessionHistory);
+  const body = await req.json();
+  const { messages: rawMessages = [], previousDirective } = body as {
+    messages?: Array<{
+      role: string;
+      content?: string;
+      parts?: Array<{ type: string; text?: string }>;
+    }>;
+    previousDirective?: ResponseDirective;
+  };
 
-  // 2. Steer
-  const steering = await steer(message, personContext, JASPER, sessionHistory, previousDirective);
-  const classificationLatencyMs = Date.now() - classifyStart;
+  // AI SDK v6 sends parts instead of content — extract text from both formats
+  function extractText(msg: { content?: string; parts?: Array<{ type: string; text?: string }> }): string {
+    if (msg.content) return msg.content;
+    if (msg.parts) {
+      return msg.parts
+        .filter(p => p.type === 'text' && p.text)
+        .map(p => p.text!)
+        .join('');
+    }
+    return '';
+  }
 
-  // 3. Stream LLM response
+  const lastUserMessage = extractText(
+    rawMessages.filter(m => m.role === 'user').pop() ?? {}
+  );
+  if (!lastUserMessage) {
+    return new Response(JSON.stringify({ error: 'No user message' }), { status: 400 });
+  }
+
+  // Convert to internal Message format
+  const sessionHistory: Message[] = rawMessages
+    .filter(m => extractText(m).length > 0)
+    .map(m => ({
+      role: m.role as 'user' | 'assistant',
+      content: extractText(m),
+      timestamp: new Date().toISOString(),
+    }));
+
+  // 1. Backbone: get person context
+  const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
+
+  // 2. Intermediary: steer
+  const steering = await steer(lastUserMessage, personContext, JASPER, sessionHistory, previousDirective);
+
+  // 3. Stream the response via AI SDK
   const responseStart = Date.now();
-  const encoder = new TextEncoder();
-  let fullResponse = '';
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        // Send steering metadata as first chunk
-        const meta = JSON.stringify({
-          type: 'metadata',
-          responseDirective: steering.responseDirective,
-          selectedPolicy: steering.selectedPolicy,
-          modelConfig: steering.modelConfig,
-        });
-        controller.enqueue(encoder.encode(`data: ${meta}\n\n`));
+  const result = streamText({
+    model: anthropic(steering.modelConfig.model),
+    system: steering.systemPrompt,
+    messages: [{ role: 'user', content: steering.reformulatedMessage }],
+    temperature: steering.modelConfig.temperature,
+    maxOutputTokens: steering.modelConfig.maxTokens,
+    onFinish: async ({ text }) => {
+      const responseLatencyMs = Date.now() - responseStart;
+      const turnNumber = rawMessages.filter(m => m.role === 'user').length;
 
-        // Stream the LLM response
-        await chatStream(
-          steering.modelConfig,
-          steering.systemPrompt,
-          steering.reformulatedMessage,
-          sessionHistory,
-          (token) => {
-            fullResponse += token;
-            const chunk = JSON.stringify({ type: 'token', content: token });
-            controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
-          },
-        );
+      // Log turn
+      logTurn(user.id, null, turnNumber, lastUserMessage, steering, text, responseLatencyMs).catch(console.error);
 
-        // Send done event
-        const done = JSON.stringify({ type: 'done', fullResponse });
-        controller.enqueue(encoder.encode(`data: ${done}\n\n`));
-        controller.close();
+      // Post-response: classify profile
+      if (steering.postResponseActions.classifyProfile) {
+        const allMessages: Message[] = [
+          ...sessionHistory,
+          { role: 'assistant', content: text, timestamp: new Date().toISOString() },
+        ];
+        classifyConversation(allMessages).then(async (result) => {
+          if (result.profileUpdates && Object.keys(result.profileUpdates).length > 0) {
+            await mergeProfileUpdates(user.id, result.profileUpdates).catch(console.error);
+          }
+        }).catch(console.error);
+      }
 
-        const responseLatencyMs = Date.now() - responseStart;
-
-        // 4. Log turn (async)
-        logTurn(userId, conversationId ?? null, turnNumber, message, steering, fullResponse, classificationLatencyMs, responseLatencyMs).catch(console.error);
-
-        // 5. Post-response actions (async)
-        if (steering.postResponseActions.extractMemories) {
-          import('@/lib/backbone/memory').then(({ addToMemory }) => {
-            addToMemory(
-              userId,
-              [{ role: 'user', content: message }, { role: 'assistant', content: fullResponse }],
-            ).catch(console.error);
-          }).catch(console.error);
-        }
-
-        if (steering.postResponseActions.classifyProfile) {
-          const allMessages: Message[] = [
-            ...sessionHistory,
-            { role: 'user', content: message, timestamp: new Date().toISOString() },
-            { role: 'assistant', content: fullResponse, timestamp: new Date().toISOString() },
-          ];
-          classifyConversation(allMessages).then(async (result) => {
-            if (result.profileUpdates && Object.keys(result.profileUpdates).length > 0) {
-              await mergeProfileUpdates(userId, result.profileUpdates).catch(console.error);
-            }
-          }).catch(console.error);
-        }
-      } catch (err) {
-        const errorMsg = JSON.stringify({ type: 'error', error: String(err) });
-        controller.enqueue(encoder.encode(`data: ${errorMsg}\n\n`));
-        controller.close();
+      // Post-response: extract memories
+      if (steering.postResponseActions.extractMemories) {
+        import('@/lib/backbone/memory').then(({ addToMemory }) => {
+          addToMemory(user.id, [
+            { role: 'user', content: lastUserMessage },
+            { role: 'assistant', content: text },
+          ]).catch(console.error);
+        }).catch(console.error);
       }
     },
   });
 
-  return new Response(stream, {
+  return result.toUIMessageStreamResponse({
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      'X-Jasper-Policy': steering.selectedPolicy.id,
+      'X-Jasper-Tier': steering.modelConfig.tier,
     },
   });
 }
