@@ -42,6 +42,8 @@ export function ChatUI() {
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>([]);
+  const [voiceStreaming, setVoiceStreaming] = useState(false);
   const [observeMode, setObserveMode] = useState(false);
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);
 
@@ -84,24 +86,38 @@ export function ChatUI() {
   // TTS is now handled by sentence-level streaming via /api/chat/voice
   // See handleVoiceSubmit for the implementation
 
-  async function handleVoiceSubmit(text: string) {
+  async function handleVoiceSubmit(userText: string) {
     if (!audioQueueRef.current) {
       audioQueueRef.current = new AudioPlaybackQueue();
       audioQueueRef.current.initFromGesture();
     }
     audioQueueRef.current.reset();
 
-    // We need to manually handle the voice stream since it's a custom SSE format
+    // Add user message to voice messages
+    const userMsgId = `voice-user-${Date.now()}`;
+    const assistantMsgId = `voice-assistant-${Date.now()}`;
+    setVoiceMessages(prev => [...prev, { id: userMsgId, role: 'user', text: userText }]);
+    setVoiceMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', text: '' }]);
+    setVoiceStreaming(true);
+
     try {
+      // Build message history from both useChat messages and voice messages
+      const allMessages = [
+        ...messages.map(m => ({ role: m.role, parts: m.parts })),
+        ...voiceMessages.filter(m => m.text).map(m => ({ role: m.role, parts: [{ type: 'text', text: m.text }] })),
+        { role: 'user', parts: [{ type: 'text', text: userText }] },
+      ];
+
       const res = await fetch('/api/chat/voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages.map(m => ({ role: m.role, parts: m.parts })), { role: 'user', parts: [{ type: 'text', text }] }],
-        }),
+        body: JSON.stringify({ messages: allMessages }),
       });
 
-      if (!res.ok || !res.body) return;
+      if (!res.ok || !res.body) {
+        setVoiceStreaming(false);
+        return;
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -122,23 +138,31 @@ export function ChatUI() {
 
           try {
             const parsed = JSON.parse(data);
+            if (parsed.type === 'text') {
+              // Append text to the assistant message for display
+              setVoiceMessages(prev =>
+                prev.map(m => m.id === assistantMsgId
+                  ? { ...m, text: m.text + parsed.content }
+                  : m
+                )
+              );
+            }
             if (parsed.type === 'audio') {
               audioQueueRef.current?.enqueue(parsed.index, parsed.audio);
             }
-            // Text is handled by the normal useChat flow
           } catch { /* ignore parse errors */ }
         }
       }
     } catch (err) {
       console.error('[voice] Stream error:', err);
+    } finally {
+      setVoiceStreaming(false);
     }
   }
 
   function handleVoiceTranscript(text: string) {
     if (voiceEnabled) {
-      // Use voice route for sentence-level TTS
-      sendMessage({ text }); // still send through normal chat for display
-      handleVoiceSubmit(text); // also stream audio
+      handleVoiceSubmit(text); // voice route only — handles both text and audio
     } else {
       sendMessage({ text });
     }
@@ -146,8 +170,12 @@ export function ChatUI() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    sendMessage({ text: input });
+    if (!input.trim() || isLoading || voiceStreaming) return;
+    if (voiceEnabled) {
+      handleVoiceSubmit(input);
+    } else {
+      sendMessage({ text: input });
+    }
     setInput('');
   }
 
@@ -200,11 +228,12 @@ export function ChatUI() {
       <div className="flex flex-1 overflow-hidden">
         {/* Messages */}
         <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 ${observeMode ? 'w-2/3' : 'w-full'}`}>
-          {messages.length === 0 && (
+          {messages.length === 0 && voiceMessages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600 text-lg">Say something.</p>
             </div>
           )}
+          {/* Regular chat messages */}
           {messages.map((m) => {
             const text = getTextContent(m);
             if (!text) return null;
@@ -222,7 +251,24 @@ export function ChatUI() {
               </div>
             );
           })}
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+          {/* Voice mode messages */}
+          {voiceMessages.map((m) => {
+            if (!m.text) return null;
+            return (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    m.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-100'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                </div>
+              </div>
+            );
+          })}
+          {(isLoading || voiceStreaming) && (
             <div className="flex justify-start">
               <div className="bg-gray-800 rounded-2xl px-4 py-3">
                 <div className="flex space-x-1">
@@ -279,12 +325,12 @@ export function ChatUI() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type a message..."
-            disabled={isLoading}
+            disabled={isLoading || voiceStreaming}
             className="flex-1 px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || voiceStreaming || !input.trim()}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl text-white font-medium transition-colors"
           >
             Send
