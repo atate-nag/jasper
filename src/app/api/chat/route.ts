@@ -10,6 +10,7 @@ import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { createHash } from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { setObserveData } from '@/app/api/observe/route';
 
 export const maxDuration = 60;
 
@@ -93,7 +94,17 @@ export async function POST(req: Request): Promise<Response> {
   const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
 
   // 2. Intermediary: steer
+  const steerStart = Date.now();
   const steering = await steer(lastUserMessage, personContext, JASPER, sessionHistory, previousDirective);
+  const steerLatencyMs = Date.now() - steerStart;
+
+  // Server-side observe log
+  const d = steering.responseDirective;
+  console.log(`[OBSERVE] intent: ${d.communicativeIntent} | posture: ${d.recommendedPostureClass} | conf: ${d.confidence} | policy: ${steering.selectedPolicy.id} | model: ${steering.modelConfig.model} (${steering.modelConfig.tier}) | steer: ${steerLatencyMs}ms`);
+  console.log(`[OBSERVE]   → "${d.rationale.substring(0, 120)}${d.rationale.length > 120 ? '...' : ''}"`);
+  if (d.recallTriggered) {
+    console.log(`[OBSERVE]   recall: ${d.recallTier} query="${d.recallQuery}"`);
+  }
 
   // 3. Stream the response via AI SDK
   const responseStart = Date.now();
@@ -136,10 +147,35 @@ export async function POST(req: Request): Promise<Response> {
     },
   });
 
+  // Store observe data for the debug panel
+  const observeData = {
+    intent: d.communicativeIntent,
+    valence: d.emotionalValence,
+    arousal: d.emotionalArousal,
+    posture: d.recommendedPostureClass,
+    length: d.recommendedResponseLength,
+    challenge: d.challengeAppropriate,
+    dispreferred: d.dispreferred,
+    confidence: d.confidence,
+    rationale: d.rationale,
+    policy: steering.selectedPolicy.id,
+    model: steering.modelConfig.model,
+    tier: steering.modelConfig.tier,
+    temperature: steering.modelConfig.temperature,
+    maxTokens: steering.modelConfig.maxTokens,
+    recallTier: d.recallTier,
+    recallQuery: d.recallQuery,
+    steerLatencyMs,
+  };
+
+  // Store for the observe endpoint
+  setObserveData(user.id, observeData);
+
   return result.toUIMessageStreamResponse({
     headers: {
       'X-Jasper-Policy': steering.selectedPolicy.id,
       'X-Jasper-Tier': steering.modelConfig.tier,
+      'X-Jasper-Observe': JSON.stringify(observeData),
     },
   });
 
