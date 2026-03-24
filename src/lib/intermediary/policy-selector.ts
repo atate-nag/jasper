@@ -57,9 +57,12 @@ export function selectPolicy(
 
   // 3. Refine based on directive specifics
   if (candidates.length > 1) {
-    // For warm_reflective with connecting/light intent, prefer connecting/light variants
+    // For warm_reflective: match intent to specific variant
     if (postureClass === 'warm_reflective') {
-      if (directive.communicativeIntent === 'connecting' ||
+      if (directive.communicativeIntent === 'venting') {
+        const ventingVariants = candidates.filter(p => p.id.includes('venting'));
+        if (ventingVariants.length > 0) candidates = ventingVariants;
+      } else if (directive.communicativeIntent === 'connecting' ||
           (directive.emotionalArousal < 0.3 && directive.emotionalValence > 0.2)) {
         const lightVariants = candidates.filter(p =>
           p.id.includes('connecting') || p.id.includes('light')
