@@ -19,7 +19,10 @@
       "Bash(git commit:*)",
       "Bash(node:*)",
       "Bash(npx tsx:*)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(__NEW_LINE_38af9ac6f9c08a80__ grep:*)",
+      "Bash(__NEW_LINE_38af9ac6f9c08a80__ echo:*)",
+      "Bash(__NEW_LINE_38af9ac6f9c08a80__ ls:*)"
     ]
   }
 }

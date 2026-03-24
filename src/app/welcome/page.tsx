@@ -9,15 +9,14 @@ export default async function WelcomePage() {
     redirect('/login');
   }
 
-  // Check if user has a profile
+  // Create profile with default calibration if it doesn't exist
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('id, calibration')
+    .select('id')
     .eq('user_id', user.id)
     .maybeSingle();
 
   if (!profile) {
-    // Create profile with default calibration
     const { defaultCalibration } = await import('@/lib/backbone/profile');
     await supabase.from('user_profiles').insert({
       user_id: user.id,
@@ -28,14 +27,8 @@ export default async function WelcomePage() {
       current_state: {},
       interaction_prefs: {},
       calibration: defaultCalibration(),
+      self_observations: [],
     });
-  } else if (!profile.calibration) {
-    // Existing profile without calibration — add defaults
-    const { defaultCalibration } = await import('@/lib/backbone/profile');
-    await supabase
-      .from('user_profiles')
-      .update({ calibration: defaultCalibration() })
-      .eq('id', profile.id);
   }
 
   redirect('/');

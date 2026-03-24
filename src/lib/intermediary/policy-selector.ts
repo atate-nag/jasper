@@ -51,7 +51,7 @@ export function selectPolicy(
     }
   }
 
-  // 2. Prefer policies matching relational depth
+  // 2. Prefer policies matching relational depth (soft signal, not hard gate)
   const depthMatches = candidates.filter(p =>
     p.relational_depth_range.includes(depth) || p.relational_depth_range.includes('any')
   );

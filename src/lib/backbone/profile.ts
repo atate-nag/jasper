@@ -285,6 +285,17 @@ export function buildClassifierSummary(profile: UserProfile, relationshipMeta: R
       ? 'Developing relationship — moderate trust established.'
       : 'Established relationship — high trust, directness welcome.';
 
+  const hasIdentity = identity.length > 0;
+
+  if (!hasIdentity && !commStyle) {
+    // New user — minimal summary
+    const parts = ['PERSON SUMMARY (for classification):'];
+    parts.push('New user — no prior interaction history.');
+    parts.push('Communication style: unknown — observe and match.');
+    parts.push(`Relationship: ${relationship}`);
+    return parts.join('\n');
+  }
+
   const parts = ['PERSON SUMMARY (for classification — do not over-interpret):'];
   if (identity) parts.push(identity);
   if (commStyle) parts.push(`Communication: ${commStyle}`);
