@@ -1,5 +1,6 @@
 // Shared post-response actions for both web chat and voice routes.
-// Handles: conversation persistence, turn logging, profile classification, memory extraction.
+// Handles: conversation persistence, turn logging, profile classification,
+// memory extraction, and session-end processing (summarisation, segments, calibration).
 
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { classifyConversation } from '@/lib/backbone/classify';
@@ -10,6 +11,12 @@ import { createHash } from 'crypto';
 
 // Per-user conversation tracking (in-memory, server-side)
 const activeConversations = new Map<string, string>();
+
+// Per-user inactivity timers for session-end processing
+const sessionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// How long to wait after the last message before running session-end processing
+const SESSION_INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function getOrCreateConversation(userId: string): Promise<string | null> {
   const existing = activeConversations.get(userId);
@@ -50,12 +57,13 @@ export async function handlePostResponse(
 ): Promise<void> {
   const turnNumber = sessionHistory.filter(m => m.role === 'user').length;
 
+  const allMessages: Message[] = [
+    ...sessionHistory,
+    { role: 'assistant', content: assistantResponse, timestamp: new Date().toISOString() },
+  ];
+
   // 1. Persist conversation messages
   if (conversationId) {
-    const allMessages: Message[] = [
-      ...sessionHistory,
-      { role: 'assistant', content: assistantResponse, timestamp: new Date().toISOString() },
-    ];
     try {
       const exchangeCount = allMessages.filter(m => m.role === 'user').length;
       await getSupabaseAdmin()
@@ -89,10 +97,6 @@ export async function handlePostResponse(
 
   // 3. Classify profile (async, non-blocking)
   if (steering.postResponseActions.classifyProfile) {
-    const allMessages: Message[] = [
-      ...sessionHistory,
-      { role: 'assistant', content: assistantResponse, timestamp: new Date().toISOString() },
-    ];
     classifyConversation(allMessages).then(async (result) => {
       if (result.profileUpdates && Object.keys(result.profileUpdates).length > 0) {
         await mergeProfileUpdates(userId, result.profileUpdates).catch(console.error);
@@ -109,4 +113,116 @@ export async function handlePostResponse(
       ]).catch(console.error);
     }).catch(console.error);
   }
+
+  // 5. Schedule session-end processing on inactivity
+  scheduleSessionEnd(userId, conversationId, allMessages);
+}
+
+/**
+ * Schedule session-end processing after a period of inactivity.
+ * Each new message resets the timer. When the timer fires,
+ * the session is considered ended and we run summarisation,
+ * segment extraction, and calibration — same as CLI /quit.
+ */
+function scheduleSessionEnd(
+  userId: string,
+  conversationId: string | null,
+  messages: Message[],
+): void {
+  // Clear any existing timer
+  const existing = sessionTimers.get(userId);
+  if (existing) clearTimeout(existing);
+
+  // Set new timer
+  const timer = setTimeout(() => {
+    sessionTimers.delete(userId);
+    runSessionEnd(userId, conversationId, messages).catch(err => {
+      console.error('[session-end] Failed:', err);
+    });
+  }, SESSION_INACTIVITY_MS);
+
+  sessionTimers.set(userId, timer);
+}
+
+/**
+ * Run the same session-end pipeline as CLI /quit:
+ * summarise, classify, extract segments, calibrate, metacognition.
+ */
+async function runSessionEnd(
+  userId: string,
+  conversationId: string | null,
+  messages: Message[],
+): Promise<void> {
+  if (messages.length < 4) {
+    // Too short for meaningful session-end processing
+    activeConversations.delete(userId);
+    return;
+  }
+
+  console.log(`[session-end] Processing session for user ${userId.slice(0, 8)}... (${messages.length} messages, ${SESSION_INACTIVITY_MS / 1000}s inactivity)`);
+
+  try {
+    // 1. Summarise
+    const { summariseConversation } = await import('@/lib/backbone/summarise');
+    const summary = await summariseConversation(messages);
+    console.log(`[session-end] Summary: ${summary.slice(0, 80)}...`);
+
+    // 2. Extract segments for deep recall
+    if (conversationId) {
+      try {
+        const { extractSegments } = await import('@/lib/backbone/recall');
+        await extractSegments(conversationId, userId, messages, new Date());
+        console.log('[session-end] Segments extracted');
+      } catch (err) {
+        console.error('[session-end] Segment extraction failed:', err);
+      }
+    }
+
+    // 3. Calibrate
+    try {
+      const { extractSessionSignals, updateCalibration, saveCalibration } = await import('@/lib/backbone/calibrate');
+      const { getProfile, defaultCalibration } = await import('@/lib/backbone/profile');
+      const profile = await getProfile(userId);
+      const currentCal = (profile as unknown as Record<string, unknown>)?.calibration as Record<string, unknown> | undefined;
+      const cal = currentCal?.challengeCeiling != null ? currentCal : defaultCalibration();
+      const signals = extractSessionSignals(messages);
+      const updated = updateCalibration(cal as ReturnType<typeof defaultCalibration>, signals);
+      await saveCalibration(userId, updated);
+      console.log(`[session-end] Calibration updated: challenge=${updated.challengeCeiling.toFixed(2)} humour=${updated.humourTolerance.toFixed(2)}`);
+    } catch (err) {
+      console.error('[session-end] Calibration failed:', err);
+    }
+
+    // 4. Metacognition
+    try {
+      const { runSessionMetacognition } = await import('@/lib/backbone/metacognition');
+      const obs = await runSessionMetacognition(userId, conversationId || 'web', messages);
+      if (obs) {
+        console.log(`[session-end] Metacognition: ${obs.patternsNoted.length} pattern(s) noted`);
+      }
+    } catch (err) {
+      console.error('[session-end] Metacognition failed:', err);
+    }
+
+    // 5. End conversation record
+    if (conversationId) {
+      try {
+        await getSupabaseAdmin()
+          .from('conversations')
+          .update({
+            ended_at: new Date().toISOString(),
+            summary,
+          })
+          .eq('id', conversationId);
+      } catch (err) {
+        console.error('[session-end] Failed to end conversation:', err);
+      }
+    }
+  } catch (err) {
+    console.error('[session-end] Pipeline failed:', err);
+  }
+
+  // Clear the active conversation so a new one is created next time
+  activeConversations.delete(userId);
+  console.log(`[session-end] Done for user ${userId.slice(0, 8)}`);
 }

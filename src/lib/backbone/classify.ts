@@ -101,7 +101,7 @@ Return raw JSON only. No markdown backticks, no commentary, no explanation.`;
   try {
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -113,16 +113,39 @@ Return raw JSON only. No markdown backticks, no commentary, no explanation.`;
       .replace(/^\s*```(?:json)?\s*\n?/i, '')
       .replace(/\n?\s*```\s*$/i, '')
       .trim();
-    // If still not valid JSON, try extracting JSON from within the text
+    // Parse JSON with multiple fallback strategies
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch {
+      // Try extracting the outermost JSON object
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {
+          // JSON is malformed (likely truncated). Try to salvage by closing open braces
+          let salvage = jsonMatch[0];
+          // Remove trailing incomplete key-value pairs
+          salvage = salvage.replace(/,\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, '');
+          // Close any open structures
+          const openBraces = (salvage.match(/\{/g) || []).length;
+          const closeBraces = (salvage.match(/\}/g) || []).length;
+          const openBrackets = (salvage.match(/\[/g) || []).length;
+          const closeBrackets = (salvage.match(/\]/g) || []).length;
+          salvage += ']'.repeat(Math.max(0, openBrackets - closeBrackets));
+          salvage += '}'.repeat(Math.max(0, openBraces - closeBraces));
+          try {
+            parsed = JSON.parse(salvage);
+            console.warn('[classify] Salvaged truncated JSON response');
+          } catch {
+            console.error('[classify] Could not parse classifier response, returning empty');
+            parsed = { classification: {}, profile_updates: {}, resolved_concerns: [] };
+          }
+        }
       } else {
-        throw new Error('No valid JSON found in classifier response');
+        console.error('[classify] No JSON found in classifier response');
+        parsed = { classification: {}, profile_updates: {}, resolved_concerns: [] };
       }
     }
 

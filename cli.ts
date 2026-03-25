@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 import * as readline from 'readline';
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 
 // Backbone
 import {
@@ -547,6 +548,23 @@ async function main(): Promise<void> {
       if (trimmed === '/clear') {
         history.length = 0;
         console.log('  history cleared.\n');
+        return prompt();
+      }
+
+      if (trimmed.startsWith('/load')) {
+        const filepath = trimmed.slice(5).trim();
+        if (!filepath) {
+          console.log('  Usage: /load <filepath>\n');
+          return prompt();
+        }
+        try {
+          const content = readFileSync(filepath, 'utf-8');
+          console.log(`  loaded ${filepath} (${content.length} chars)\n`);
+          await handleMessage(content);
+          console.log();
+        } catch {
+          console.log(`  error: could not read ${filepath}\n`);
+        }
         return prompt();
       }
 
