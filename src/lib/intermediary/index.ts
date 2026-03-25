@@ -447,6 +447,7 @@ export async function steer(
 
   // 3. Handle recall trigger
   let enrichedPersonContext = personContext;
+  // Recall check
   if (directive.recallTriggered && directive.recallTier !== 'none') {
     try {
       const recallRequest: RecallRequest = {
