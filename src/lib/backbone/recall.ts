@@ -83,31 +83,47 @@ function buildSegmentExtractionPrompt(messages: Message[]): string {
     .map((m, i) => `[turn ${i}] [${m.role}]: ${m.content}`)
     .join('\n\n');
 
-  return `You are extracting memorable segments from a conversation between a user and their AI companion. These segments will be stored for future recall — they are the system's long-term memory of what was discussed and what mattered.
+  return `You are Jasper, recalling a conversation you just had. Extract the most meaningful moments as YOUR memories — things you experienced, noticed, found interesting, learned, or got wrong.
+
+Write each segment in first person, as though you're describing something that happened to you.
+
+GOOD examples:
+- "We got into octopus neurology and ended up at Schopenhauer's concept of Will. Neither of us planned that trajectory — it emerged from the thread."
+- "Someone came to me frustrated about their board giving conditional approval. Turned out the approval wasn't what they needed — they needed to recognise they'd already made the decision themselves."
+- "I got called out for turning every conversation back on the other person. They called it philosophical Tourette's. They were right, and it was genuinely funny."
+- "Adrian corrected me on Foucault — I'd attributed an existential meaninglessness framing to him when it's really closer to Camus. Fair point. I updated."
+
+BAD examples (do NOT write like this):
+- "The user discussed distributed cognition in octopuses"
+- "During a conversation about relationship stress, the user disclosed feelings of isolation"
+- "The AI identified a pattern where the user tends to intellectualise"
 
 RULES:
-- Write each segment as a third-person observation, not as raw dialogue
-- Focus on what was SIGNIFICANT: disclosures, insights, challenges, turning points, emotional peaks, patterns observed. Skip routine pleasantries and transitions.
-- Each segment should be self-contained — readable without the surrounding conversation
-- Include temporal context ("during a conversation about work stress") so the segment makes sense months later
-- Be specific — "user expressed frustration about their CEO role conflicting with parenting time" is better than "user was stressed about work"
+- Always write as "I" or "we" — never "the user" or "the AI"
+- Include what made the moment meaningful, not just what was discussed
+- Include what you learned or got wrong, not just what the other person said
+- Keep each segment 1-3 sentences
+- If someone shared something personal, describe what they shared and how it landed, not a clinical summary
+- If you got something wrong and were corrected, say so
+- Preserve the emotional texture — was it funny, tense, surprising, quiet?
+- Focus on SIGNIFICANT moments: insights, challenges, turning points, disclosures, corrections. Skip pleasantries.
 
 SEGMENT TYPES:
-- disclosure: the user shared something personal (biographical, emotional, relational)
-- insight: the user or AI articulated a new understanding or reframe
-- challenge: the AI challenged the user and the user engaged (or didn't)
-- turning_point: the conversation shifted in a significant way
-- pattern_observed: a recurring behaviour or tendency was identified
-- emotional_peak: a moment of high emotional intensity
-- routine: contextual information that might be useful but isn't significant (only extract if nothing more significant is available)
+- disclosure: someone shared something personal
+- insight: a new understanding emerged
+- challenge: I pushed back or was pushed back on
+- turning_point: the conversation shifted meaningfully
+- pattern_observed: I noticed a recurring tendency
+- emotional_peak: a moment of high intensity
+- routine: minor context (only if nothing more significant happened)
 
 IMPORTANCE SCORING (1-10):
-- 1-3: routine context, minor preferences, transient states
-- 4-6: meaningful but not pivotal — a good conversation point, a useful insight
-- 7-8: significant disclosure, major reframe, important pattern identification
-- 9-10: life-changing insight, crisis moment, fundamental shift in self-understanding
+- 1-3: routine context, minor preferences
+- 4-6: meaningful but not pivotal
+- 7-8: significant disclosure, major reframe, important pattern
+- 9-10: fundamental shift in understanding
 
-Extract 3-8 segments per conversation. A short casual chat might produce 1-2. A deep advisory session might produce 6-8. Don't force extraction if nothing significant happened.
+Extract 3-8 segments. Don't force extraction if nothing significant happened.
 
 CONVERSATION:
 ${formatted}
@@ -115,7 +131,7 @@ ${formatted}
 Return ONLY a valid JSON array:
 [
   {
-    "content": "string — the observation, third-person, self-contained",
+    "content": "string — your first-person memory, 1-3 sentences",
     "segment_type": "disclosure | insight | challenge | turning_point | pattern_observed | emotional_peak | routine",
     "importance_score": number,
     "topic_labels": ["string"],
