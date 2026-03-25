@@ -232,7 +232,7 @@ interface VectorCandidate {
 }
 
 async function vectorSearch(
-  userId: string,
+  userIds: string[],
   queryEmbedding: number[],
   limit: number,
   _timeWindow?: { after: Date; before: Date },
@@ -240,13 +240,12 @@ async function vectorSearch(
   importanceFloor?: number,
 ): Promise<VectorCandidate[]> {
   // Use pgvector via Supabase's vector column support
-  // Pass the embedding as a plain array — Supabase JS handles vector serialisation
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
 
   const { data, error } = await getSupabaseAdmin()
     .rpc('match_segments', {
       query_embedding: embeddingStr,
-      match_user_id: userId,
+      match_user_ids: userIds,
       match_count: limit,
       min_importance: importanceFloor ?? 3,
     });
@@ -269,12 +268,12 @@ async function vectorSearch(
     console.warn('[recall] Vector search RPC failed:', error.message);
   }
 
-  // Fallback: fetch all segments for this user and compute similarity in JS
+  // Fallback: fetch segments for all user IDs and compute similarity in JS
   console.log('[recall] Using JS-side similarity scoring fallback');
   const { data: allSegments, error: fallbackError } = await getSupabaseAdmin()
     .from('conversation_segments')
     .select('id, content, importance_score, segment_type, topic_labels, emotional_valence, conversation_date, conversation_id, embedding')
-    .eq('user_id', userId)
+    .in('user_id', userIds)
     .gte('importance_score', importanceFloor ?? 3)
     .order('importance_score', { ascending: false })
     .limit(100);
@@ -337,12 +336,25 @@ async function updateAccessTimes(segmentIds: string[]): Promise<void> {
 export async function recall(request: RecallRequest): Promise<RecallResult> {
   const startTime = Date.now();
 
+  // Determine which user IDs to search — clone users also search master's segments
+  const userIds = [request.userId];
+  try {
+    const { data: profile } = await getSupabase()
+      .from('user_profiles')
+      .select('clone_source_user_id')
+      .eq('user_id', request.userId)
+      .single();
+    if (profile?.clone_source_user_id) {
+      userIds.push(profile.clone_source_user_id);
+    }
+  } catch { /* non-critical */ }
+
   // 1. Embed the query
   const queryEmbedding = await embed(request.query);
 
-  // 2. Vector search — over-retrieve 20 candidates
+  // 2. Vector search — over-retrieve 20 candidates from all relevant users
   const candidates = await vectorSearch(
-    request.userId,
+    userIds,
     queryEmbedding,
     20,
     request.timeWindow,
