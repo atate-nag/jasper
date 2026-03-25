@@ -3,7 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonContext } from '@/lib/backbone';
 import { steer } from '@/lib/intermediary';
-import { JASPER } from '@/lib/product/identity';
+import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser } from '@/lib/product/identity';
 import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { setObserveData } from '@/app/api/observe/route';
@@ -61,9 +61,17 @@ export async function POST(req: Request): Promise<Response> {
     // 1. Backbone: get person context
     const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
 
-    // 2. Intermediary: steer
+    // 2. Build identity prompt from profile's jasper_character
+    const profileData = personContext.profile as unknown as Record<string, unknown>;
+    const charConfig = buildCharacterConfig(profileData);
+    const jasperIdentity = {
+      ...JASPER,
+      identityPrompt: buildIdentityPrompt(charConfig, isCloneUser(profileData)),
+    };
+
+    // 3. Intermediary: steer
     const steerStart = Date.now();
-    const steering = await steer(lastUserMessage, personContext, JASPER, sessionHistory, previousDirective);
+    const steering = await steer(lastUserMessage, personContext, jasperIdentity, sessionHistory, previousDirective);
     const steerLatencyMs = Date.now() - steerStart;
 
     // Server-side observe log

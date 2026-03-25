@@ -29,7 +29,7 @@ import { steer } from './src/lib/intermediary';
 import type { ResponseDirective, SteeringResult, ConversationState } from './src/lib/intermediary/types';
 
 // Product
-import { JASPER } from './src/lib/product/identity';
+import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser } from './src/lib/product/identity';
 import { detectActivity, type Activity } from './src/lib/product/activities/index';
 import { recordUntilEnter } from './src/lib/product/voice/recorder';
 import { transcribe } from './src/lib/product/voice/stt';
@@ -148,8 +148,16 @@ async function handleMessage(input: string): Promise<string> {
   // Build person context
   const personContext = await getPersonContext(USER_ID, input, history);
 
+  // Build identity prompt from profile's jasper_character
+  const profileData = personContext.profile as unknown as Record<string, unknown>;
+  const charConfig = buildCharacterConfig(profileData);
+  const jasperIdentity = {
+    ...JASPER,
+    identityPrompt: buildIdentityPrompt(charConfig, isCloneUser(profileData)),
+  };
+
   // Steer
-  const steering = await steer(input, personContext, JASPER, history, previousDirective, previousConversationState);
+  const steering = await steer(input, personContext, jasperIdentity, history, previousDirective, previousConversationState);
   previousDirective = steering.responseDirective;
   previousConversationState = steering.conversationState;
 

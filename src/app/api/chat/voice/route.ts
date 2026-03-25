@@ -3,7 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonContext } from '@/lib/backbone';
 import { steer } from '@/lib/intermediary';
-import { JASPER } from '@/lib/product/identity';
+import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser } from '@/lib/product/identity';
 import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
@@ -85,8 +85,17 @@ export async function POST(req: Request): Promise<Response> {
 
   try {
     const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
+
+    // Build identity prompt from profile's jasper_character
+    const profileData = personContext.profile as unknown as Record<string, unknown>;
+    const charConfig = buildCharacterConfig(profileData);
+    const jasperIdentity = {
+      ...JASPER,
+      identityPrompt: buildIdentityPrompt(charConfig, isCloneUser(profileData)),
+    };
+
     const steering = await steer(
-      lastUserMessage, personContext, JASPER, sessionHistory, previousDirective,
+      lastUserMessage, personContext, jasperIdentity, sessionHistory, previousDirective,
       undefined, { voiceMode: true },
     );
 
