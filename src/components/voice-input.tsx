@@ -2,11 +2,26 @@
 
 import { useState, useRef, useCallback } from 'react';
 
+const WHISPER_HALLUCINATIONS = [
+  /thanks for watching/i,
+  /like and subscribe/i,
+  /see you in the next video/i,
+  /please subscribe/i,
+  /thanks for listening/i,
+  /\bsubscribe\b.*\bchannel\b/i,
+  /\bbell\b.*\bnotification/i,
+  /thank you for watching/i,
+  /don't forget to subscribe/i,
+  /hit the like button/i,
+];
+
 function isValidSpeech(transcription: string): boolean {
   const cleaned = transcription
     .replace(/[.\s,!?;:\-–—…'"()[\]{}]/g, '')
     .trim();
-  return cleaned.length >= 3;
+  if (cleaned.length < 3) return false;
+  if (WHISPER_HALLUCINATIONS.some(p => p.test(transcription))) return false;
+  return true;
 }
 
 interface VoiceInputProps {
