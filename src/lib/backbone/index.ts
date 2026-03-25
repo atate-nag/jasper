@@ -14,6 +14,7 @@ export { recallConversation, extractSegments, recall, getSourceTurns } from './r
 export type { SegmentExtraction, RecallRequest, RecallResult, RecalledSegment } from './recall';
 export { extractSessionSignals, updateCalibration, saveCalibration, evaluateDepthProgression } from './calibrate';
 export { runSessionMetacognition, getInjectableObservations, markObservationsInjected, computeSessionMetrics, evaluateMetaheuristics } from './metacognition';
+export { createCloneProfile } from './clone';
 export type { UserProfile, UserProfileUpdate, PersonContext, Memory, ConversationSummary, ConversationRecord, ConversationSegment, RelationshipMeta, CalibrationParameters, CalibrationSignals, CommunicationStyle } from './types';
 
 import { getProfile, defaultCalibration } from './profile';

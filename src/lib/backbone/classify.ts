@@ -19,7 +19,11 @@ export async function classifyConversation(
   const anthropic = new Anthropic();
 
   const conversationText = messages
-    .map((m) => `${m.role}: ${m.content}`)
+    .map((m) => {
+      // Truncate very long messages to prevent classifier token overflow
+      const content = m.content.length > 500 ? m.content.slice(0, 500) + '... [truncated]' : m.content;
+      return `${m.role}: ${content}`;
+    })
     .join('\n');
 
   const profileContext = existingProfile

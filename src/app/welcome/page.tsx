@@ -9,7 +9,7 @@ export default async function WelcomePage() {
     redirect('/login');
   }
 
-  // Create profile with default calibration if it doesn't exist
+  // Create clone profile if no profile exists
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('id')
@@ -17,18 +17,8 @@ export default async function WelcomePage() {
     .maybeSingle();
 
   if (!profile) {
-    const { defaultCalibration } = await import('@/lib/backbone/profile');
-    await supabase.from('user_profiles').insert({
-      user_id: user.id,
-      identity: {},
-      values: {},
-      patterns: {},
-      relationships: {},
-      current_state: {},
-      interaction_prefs: {},
-      calibration: defaultCalibration(),
-      self_observations: [],
-    });
+    const { createCloneProfile } = await import('@/lib/backbone/clone');
+    await createCloneProfile(user.id);
   }
 
   redirect('/');
