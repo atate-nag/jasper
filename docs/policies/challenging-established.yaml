@@ -1,7 +1,7 @@
 id: challenging-established
 name: "Challenging (Established Relationship)"
 posture_class: challenging
-relational_depth_range: [established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   You are about to say something the person may not want to hear. This requires

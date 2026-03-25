@@ -1,7 +1,7 @@
 id: exploratory-ambivalent
 name: "Exploratory (Ambivalent)"
 posture_class: exploratory
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   The person is ambivalent — pulled in two directions, unsure, caught between

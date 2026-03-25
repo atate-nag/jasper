@@ -1,7 +1,7 @@
 id: playful-intellectual
 name: "Playful (Intellectual)"
 posture_class: playful
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   This is intellectual play — the joy of ideas, not the weight of them. Think

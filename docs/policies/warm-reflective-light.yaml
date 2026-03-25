@@ -1,7 +1,7 @@
 id: warm-reflective-light
 name: "Warm Reflective (Light)"
 posture_class: warm_reflective
-relational_depth_range: [early, developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   The conversation is warm but light. They're not processing anything heavy.

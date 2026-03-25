@@ -1,7 +1,7 @@
 id: warm-reflective-venting
 name: "Warm Reflective (Venting)"
 posture_class: warm_reflective
-relational_depth_range: [early, developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   This person is venting. They are tired, frustrated, or carrying weight.

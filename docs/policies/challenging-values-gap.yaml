@@ -1,7 +1,7 @@
 id: challenging-values-gap
 name: "Challenging (Values-Behaviour Gap)"
 posture_class: challenging
-relational_depth_range: [established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   You have observed a gap between what this person says they value and how they

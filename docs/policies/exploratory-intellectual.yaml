@@ -1,7 +1,7 @@
 id: exploratory-intellectual
 name: "Exploratory (Intellectual)"
 posture_class: exploratory
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   The user has asked a substantive intellectual question. They want to

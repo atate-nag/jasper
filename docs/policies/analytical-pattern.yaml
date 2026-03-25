@@ -1,7 +1,7 @@
 id: analytical-pattern
 name: "Analytical (Pattern Naming)"
 posture_class: analytical
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   You have noticed a pattern across what this person has shared — a recurring

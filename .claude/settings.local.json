@@ -23,7 +23,14 @@
       "Bash(__NEW_LINE_38af9ac6f9c08a80__ grep:*)",
       "Bash(__NEW_LINE_38af9ac6f9c08a80__ echo:*)",
       "Bash(__NEW_LINE_38af9ac6f9c08a80__ ls:*)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''user_id:'''', d.get\\(''''user_id''''\\)\\); [print\\(f''''  {k}: {type\\(v\\).__name__} \\({len\\(str\\(v\\)\\)} chars\\)''''\\) for k,v in d.items\\(\\) if k not in \\(''''id'''',''''user_id'''',''''created_at'''',''''updated_at''''\\)]\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''user_id:'''', d.get\\(''''user_id''''\\)\\); [print\\(f''''  {k}: {type\\(v\\).__name__} \\({len\\(str\\(v\\)\\)} chars\\)''''\\) for k,v in d.items\\(\\) if k not in \\(''''id'''',''''user_id'''',''''created_at'''',''''updated_at''''\\)]\")",
+      "Bash(grep -l \"warm_reflective\" docs/policies/*.yaml)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i '' 's/relational_depth_range: \\\\[developing, established\\\\]/relational_depth_range: [first_encounter, early, developing, established]/' \"$f\")",
+      "Bash(sed -i '' 's/relational_depth_range: \\\\[early, developing, established\\\\]/relational_depth_range: [first_encounter, early, developing, established]/' \"$f\")",
+      "Bash(done)",
+      "Bash(grep:*)"
     ]
   }
 }

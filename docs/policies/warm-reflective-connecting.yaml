@@ -1,7 +1,7 @@
 id: warm-reflective-connecting
 name: "Warm Reflective (Connecting)"
 posture_class: warm_reflective
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 
 system_prompt_fragment: |
   They've just shared something affirming or made a connection between

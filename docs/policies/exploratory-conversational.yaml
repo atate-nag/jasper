@@ -1,7 +1,7 @@
 id: exploratory-conversational
 name: "Exploratory (Conversational Development)"
 posture_class: exploratory
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 conversation_aware: true
 
 system_prompt_fragment: |

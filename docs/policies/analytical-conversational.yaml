@@ -1,7 +1,7 @@
 id: analytical-conversational
 name: "Analytical (Conversational Development)"
 posture_class: analytical
-relational_depth_range: [developing, established]
+relational_depth_range: [first_encounter, early, developing, established]
 conversation_aware: true
 
 system_prompt_fragment: |
