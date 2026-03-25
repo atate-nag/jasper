@@ -244,7 +244,7 @@ async function handleMessage(input: string): Promise<string> {
     steering.modelConfig,
     steering.systemPrompt,
     steering.reformulatedMessage,
-    steering.responseDirective.communicativeIntent === 'connecting' ? [] : history,
+    history,
     (token) => {
       if (showOutput) process.stdout.write(token);
       if (speechStream) speechStream.push(token);
