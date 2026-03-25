@@ -94,7 +94,9 @@ Respond with ONLY valid JSON in this exact format:
     "interaction_prefs": {}
   },
   "resolved_concerns": []
-}`;
+}
+
+Return raw JSON only. No markdown backticks, no commentary, no explanation.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -106,12 +108,23 @@ Respond with ONLY valid JSON in this exact format:
     const text =
       response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // Strip markdown fencing if present
+    // Strip markdown fencing — handle whitespace, newlines, multiple backtick styles
     const cleaned = text
-      .replace(/^```(?:json)?\s*\n?/i, '')
-      .replace(/\n?```\s*$/i, '')
+      .replace(/^\s*```(?:json)?\s*\n?/i, '')
+      .replace(/\n?\s*```\s*$/i, '')
       .trim();
-    const parsed = JSON.parse(cleaned);
+    // If still not valid JSON, try extracting JSON from within the text
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No valid JSON found in classifier response');
+      }
+    }
 
     return {
       classification: parsed.classification ?? {},

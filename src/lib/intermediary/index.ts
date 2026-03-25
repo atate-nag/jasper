@@ -49,7 +49,15 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
 
   const tempRanges = { ambient: [0.7, 1.0], standard: [0.6, 0.95], deep: [0.5, 0.8] };
   const [min, max] = tempRanges[tier];
-  const temperature = min + Math.random() * (max - min);
+  let temperature = min + Math.random() * (max - min);
+
+  // Cap temperature for shallow relationships to prevent confabulation
+  const relDepth = ctx.relationshipMeta.conversationCount;
+  if (relDepth <= 1) {
+    temperature = Math.min(temperature, 0.7);
+  } else if (relDepth <= 5) {
+    temperature = Math.min(temperature, 0.8);
+  }
 
   return { tier, provider: 'anthropic', model, temperature: Math.round(temperature * 100) / 100, maxTokens };
 }
@@ -375,6 +383,54 @@ export async function steer(
   previousConversationState?: ConversationState,
   options?: { voiceMode?: boolean },
 ): Promise<SteeringResult> {
+  // Fast path: skip classification for trivial greetings
+  const trivialPatterns = /^(hi|hey|hello|morning|evening|yo|sup|what'?s up|howdy|good (morning|evening|afternoon))[.!?,\s]*$/i;
+  if (trivialPatterns.test(userMessage.trim()) && sessionHistory.length === 0) {
+    const defaultDirective: ResponseDirective = {
+      communicativeIntent: 'connecting',
+      emotionalValence: 0.3,
+      emotionalArousal: 0.2,
+      challengeReadiness: 'contemplation',
+      conversationalPhase: 'opening',
+      recallTriggered: false,
+      recallQuery: null,
+      recallTier: 'none',
+      recallSignals: [],
+      recommendedPostureClass: 'minimal',
+      recommendedResponseLength: 'short',
+      challengeAppropriate: false,
+      dispreferred: false,
+      confidence: 0.95,
+      rationale: 'Trivial greeting — fast path, no classification needed',
+      communicationStyle: {
+        verbosity: 'terse',
+        formality: 'casual',
+        humourPresent: false,
+        disclosureLevel: 'none',
+        energy: 'moderate',
+      },
+    };
+
+    const policies = loadPolicies();
+    const policy = selectPolicy(defaultDirective, personContext, policies);
+    const components = buildPromptComponents(productIdentity, personContext, policy, defaultDirective, sessionHistory);
+    const { prompt: systemPrompt } = assemblePrompt(components);
+    const reformulatedMessage = reformulate(userMessage, personContext, policy, defaultDirective);
+    const modelConfig = determineModelConfig(defaultDirective, personContext);
+    const conversationState = initialConversationState();
+
+    return {
+      systemPrompt,
+      reformulatedMessage,
+      modelConfig,
+      responseDirective: defaultDirective,
+      selectedPolicy: { id: policy.id, name: policy.name, posture_class: policy.posture_class },
+      recallTriggered: false,
+      postResponseActions: { classifyProfile: false, extractMemories: false, logTurn: true },
+      conversationState,
+    };
+  }
+
   // 1. Classify
   const rawDirective = await classify(userMessage, personContext, sessionHistory, previousDirective);
 

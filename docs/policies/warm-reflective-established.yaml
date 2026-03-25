@@ -20,7 +20,7 @@ system_prompt_fragment: |
 response_structure:
   opening_move: "complex_reflection"
   development_approach: "reflect_then_observe"
-  closing_move: "gentle_question_or_silence"
+  closing_move: "gentle_question_or_observation_or_silence"
   dispreferred: false
 
 constraints:
