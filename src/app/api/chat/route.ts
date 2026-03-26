@@ -100,8 +100,11 @@ export async function POST(req: Request): Promise<Response> {
       messages: [{ role: 'user', content: steering.reformulatedMessage }],
       temperature: steering.modelConfig.temperature,
       maxOutputTokens: steering.modelConfig.maxTokens,
-      onFinish: async ({ text }) => {
+      onFinish: async ({ text, finishReason }) => {
         const responseLatencyMs = Date.now() - responseStart;
+        if (finishReason === 'length') {
+          console.warn(`[chat] Response truncated at token limit (${steering.modelConfig.maxTokens} tokens)`);
+        }
         handlePostResponse(
           user.id, conversationId, sessionHistory,
           lastUserMessage, text, steering, responseLatencyMs,
