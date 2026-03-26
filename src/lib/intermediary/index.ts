@@ -103,6 +103,44 @@ function shouldFireDepthScoring(
   return signalCount >= DEPTH_EVAL_CONFIG.noveltyThreshold;
 }
 
+function buildPersonContextBlock(profile: PersonContext['profile'], conversationCount: number): string | null {
+  const name = profile?.identity?.name;
+
+  const parts: string[] = [];
+
+  if (name) {
+    parts.push(`YOU ARE TALKING TO: ${name}`);
+  } else {
+    parts.push('YOU ARE TALKING TO: [unknown — listen for their name]');
+  }
+
+  if (conversationCount > 0) {
+    parts.push(`You have spoken ${conversationCount} time${conversationCount > 1 ? 's' : ''} before.`);
+  } else {
+    parts.push('This is your first conversation.');
+  }
+
+  const keyFacts: string[] = [];
+  if (profile?.values?.core_values && profile.values.core_values.length > 0) {
+    keyFacts.push(`Values: ${profile.values.core_values.slice(0, 3).join(', ')}`);
+  }
+  if (profile?.current_state?.mood_trajectory) {
+    keyFacts.push(`Current mood: ${profile.current_state.mood_trajectory}`);
+  }
+  if (profile?.current_state?.active_concerns && profile.current_state.active_concerns.length > 0) {
+    keyFacts.push(`On their mind: ${profile.current_state.active_concerns[0]}`);
+  }
+  if (keyFacts.length > 0) {
+    parts.push(keyFacts.join('. ') + '.');
+  }
+
+  if (name) {
+    parts.push(`Use ${name}'s name occasionally — at greetings, at genuine moments, at goodbyes. Not every turn. The way a friend does.`);
+  }
+
+  return parts.join('\n');
+}
+
 function buildPromptComponents(
   productIdentity: ProductIdentity,
   personContext: PersonContext,
@@ -111,6 +149,7 @@ function buildPromptComponents(
   sessionHistory: Message[],
   voiceMode: boolean = false,
   pendingDepth?: PendingDepth | null,
+  sessionStartRecall?: string | null,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
@@ -131,6 +170,30 @@ function buildPromptComponents(
     label: 'obligations',
     tokenEstimate: est(obligations),
   });
+
+  // Priority 88: Person context — who you're talking to
+  const personBlock = buildPersonContextBlock(
+    personContext.profile,
+    personContext.relationshipMeta.conversationCount,
+  );
+  if (personBlock) {
+    components.push({
+      priority: 88,
+      content: personBlock,
+      label: 'person_context_block',
+      tokenEstimate: est(personBlock),
+    });
+  }
+
+  // Priority 55: Session-start recall — what you remember about this person
+  if (sessionStartRecall) {
+    components.push({
+      priority: 55,
+      content: sessionStartRecall,
+      label: 'session_start_recall',
+      tokenEstimate: est(sessionStartRecall),
+    });
+  }
 
   // Priority 90: Anti-sycophancy re-injection
   const turnCount = sessionHistory.filter(m => m.role === 'user').length;
@@ -537,8 +600,37 @@ export async function steer(
   const policies = loadPolicies();
   const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
 
+  // 4.5 Proactive recall at session start — give Jasper memories of this person
+  let sessionStartRecall: string | null = null;
+  const isFirstTurn = sessionHistory.filter(m => m.role === 'user').length <= 1;
+  const isReturningUser = enrichedPersonContext.relationshipMeta.conversationCount > 0;
+  if (isFirstTurn && isReturningUser && enrichedPersonContext.recalledSegments.length === 0) {
+    try {
+      const name = enrichedPersonContext.profile.identity?.name || 'this person';
+      // Use profile data as query to surface most relevant memories
+      const concerns = enrichedPersonContext.profile.current_state?.active_concerns || [];
+      const query = `${name} recent conversations ${concerns.slice(0, 2).join(' ')}`.trim();
+      const proactiveRecall = await recall({
+        query,
+        userId: enrichedPersonContext.profile.user_id,
+        maxSegments: 3,
+        recencyBias: 0.4,
+        importanceFloor: 5,
+        includeEmotionalContext: true,
+      });
+      if (proactiveRecall.segments.length > 0) {
+        const memories = proactiveRecall.segments
+          .map(s => `- ${s.content}`)
+          .join('\n');
+        sessionStartRecall = `WHAT YOU REMEMBER ABOUT ${name.toUpperCase()}:\n${memories}\n\nThese are real memories from previous conversations. Reference them naturally when relevant — not as a recap, but as the texture of knowing someone.`;
+      }
+    } catch {
+      // Non-critical — session proceeds without proactive recall
+    }
+  }
+
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, sessionStartRecall);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message
