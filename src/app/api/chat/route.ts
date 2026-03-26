@@ -78,7 +78,6 @@ export async function POST(req: Request): Promise<Response> {
     const d = steering.responseDirective;
     const sysPromptWords = steering.systemPrompt.split(/\s+/).length;
     const historyWords = sessionHistory.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
-    console.log(`[TURN] msgs=${sessionHistory.length} (${historyWords}w) | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | user="${lastUserMessage.slice(0, 50)}"`);
 
     // 3. Get or create conversation for persistence
     const conversationId = await getOrCreateConversation(user.id);
@@ -86,10 +85,21 @@ export async function POST(req: Request): Promise<Response> {
     // 4. Stream the response via AI SDK
     const responseStart = Date.now();
 
+    // Build the full message array: conversation history + reformulated current message
+    const llmMessages = [
+      ...sessionHistory.slice(0, -1).map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+      { role: 'user' as const, content: steering.reformulatedMessage },
+    ];
+
+    console.log(`[TURN] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | user="${lastUserMessage.slice(0, 50)}"`);
+
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,
-      messages: [{ role: 'user', content: steering.reformulatedMessage }],
+      messages: llmMessages,
       temperature: steering.modelConfig.temperature,
       maxOutputTokens: steering.modelConfig.maxTokens,
       onFinish: async ({ text, finishReason }) => {

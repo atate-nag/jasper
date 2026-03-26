@@ -110,10 +110,19 @@ export async function POST(req: Request): Promise<Response> {
     const conversationId = await getOrCreateConversation(user.id);
     const responseStart = Date.now();
 
+    // Build the full message array: conversation history + reformulated current message
+    const llmMessages = [
+      ...sessionHistory.slice(0, -1).map(m => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+      { role: 'user' as const, content: steering.reformulatedMessage },
+    ];
+
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,
-      messages: [{ role: 'user', content: steering.reformulatedMessage }],
+      messages: llmMessages,
       temperature: steering.modelConfig.temperature,
       maxOutputTokens: steering.modelConfig.maxTokens,
     });
