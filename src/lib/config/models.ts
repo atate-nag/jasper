@@ -57,19 +57,19 @@ const MIXED_ROUTING: ModelRouting = {
   ...DEFAULT_ROUTING,
   ambient: {
     provider: 'openai',
-    model: 'gpt-4o-mini',
+    model: 'gpt-5.4-mini',
     maxTokens: 200,
     defaultTemperature: 0.7,
   },
   deep: {
-    provider: 'openai',
-    model: 'gpt-4o',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     maxTokens: 800,
     defaultTemperature: 0.7,
   },
   opener: {
     provider: 'openai',
-    model: 'gpt-4o-mini',
+    model: 'gpt-5.4-mini',
     maxTokens: 100,
     defaultTemperature: 0.7,
   },

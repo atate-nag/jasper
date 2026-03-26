@@ -44,7 +44,7 @@ export async function callModel(
   if (config.provider === 'openai') {
     const response = await getOpenAI().chat.completions.create({
       model: config.model,
-      max_tokens: config.maxTokens,
+      max_completion_tokens: config.maxTokens,
       temperature: temp,
       messages: [
         { role: 'system' as const, content: systemPrompt },
@@ -92,7 +92,7 @@ export async function* streamModel(
   if (config.provider === 'openai') {
     const stream = await getOpenAI().chat.completions.create({
       model: config.model,
-      max_tokens: config.maxTokens,
+      max_completion_tokens: config.maxTokens,
       temperature: temp,
       stream: true,
       messages: [
