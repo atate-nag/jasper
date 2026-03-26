@@ -630,13 +630,33 @@ export async function steer(
   const policies = loadPolicies();
   const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
 
-  // 4.5 Proactive recall — DISABLED
-  // Was causing cross-conversation contamination: the model couldn't distinguish
-  // recalled segments from current conversation, leading to fabricated references
-  // to things said in previous sessions as if they were said in this one.
-  // Normal recall (triggered by classifier) handles cross-session references
-  // when the user actually asks about past conversations.
-  const sessionStartRecall: string | null = null;
+  // 4.5 Proactive recall at session start — give Jasper memories of this person
+  let sessionStartRecall: string | null = null;
+  const isFirstTurn = sessionHistory.filter(m => m.role === 'user').length <= 1;
+  const isReturningUser = enrichedPersonContext.relationshipMeta.conversationCount > 0;
+  if (isFirstTurn && isReturningUser && enrichedPersonContext.recalledSegments.length === 0) {
+    try {
+      const name = enrichedPersonContext.profile.identity?.name || 'this person';
+      const concerns = enrichedPersonContext.profile.current_state?.active_concerns || [];
+      const query = `${name} recent conversations ${concerns.slice(0, 2).join(' ')}`.trim();
+      const proactiveRecall = await recall({
+        query,
+        userId: enrichedPersonContext.profile.user_id,
+        maxSegments: 3,
+        recencyBias: 0.4,
+        importanceFloor: 5,
+        includeEmotionalContext: true,
+      });
+      if (proactiveRecall.segments.length > 0) {
+        const memories = proactiveRecall.segments
+          .map(s => `- ${s.content}`)
+          .join('\n');
+        sessionStartRecall = `WHAT YOU REMEMBER ABOUT ${name.toUpperCase()} (from previous conversations — not this one):\n${memories}\n\nThese are from past sessions. Reference them naturally when relevant — not as a recap, but as the texture of knowing someone. Do not confuse these with what has been said in the current conversation.`;
+      }
+    } catch {
+      // Non-critical — session proceeds without proactive recall
+    }
+  }
 
   // 5. Assemble prompt
   const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, sessionStartRecall);
