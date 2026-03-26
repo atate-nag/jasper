@@ -29,7 +29,7 @@ import { steer } from './src/lib/intermediary';
 import type { ResponseDirective, SteeringResult, ConversationState } from './src/lib/intermediary/types';
 
 // Product
-import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser } from './src/lib/product/identity';
+import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser, CLONE_OPENER } from './src/lib/product/identity';
 import { detectActivity, type Activity } from './src/lib/product/activities/index';
 import { recordUntilEnter } from './src/lib/product/voice/recorder';
 import { transcribe } from './src/lib/product/voice/stt';
@@ -481,7 +481,16 @@ async function main(): Promise<void> {
   recentConversations = await loadRecentConversations();
   await startConversation();
 
-  console.log('\n  Type your message and press Enter.');
+  // Clone opener: Jasper speaks first for new users
+  const profileData = profile as unknown as Record<string, unknown>;
+  if (isCloneUser(profileData) && history.length === 0) {
+    const opener = CLONE_OPENER;
+    console.log(`\n\x1b[32mai:\x1b[0m ${opener}\n`);
+    history.push({ role: 'assistant', content: opener, timestamp: new Date().toISOString() });
+    persistMessages();
+  }
+
+  console.log('  Type your message and press Enter.');
   console.log('  Commands: /profile  /memories  /history  /observe  /voice  /clear  /quit\n');
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });

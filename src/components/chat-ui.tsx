@@ -34,7 +34,9 @@ interface ObserveData {
   steerLatencyMs: number;
 }
 
-export function ChatUI() {
+const CLONE_OPENER = "Hey. I'm Jasper. Good to meet you.";
+
+export function ChatUI({ isClone = false }: { isClone?: boolean } = {}) {
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), []);
   const { messages, sendMessage, status } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,7 +44,13 @@ export function ChatUI() {
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>([]);
+  const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>(() => {
+    // Clone opener: Jasper speaks first for new users
+    if (isClone) {
+      return [{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }];
+    }
+    return [];
+  });
   const [voiceStreaming, setVoiceStreaming] = useState(false);
   const [observeMode, setObserveMode] = useState(false);
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);

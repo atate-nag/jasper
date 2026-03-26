@@ -10,5 +10,14 @@ export default async function HomePage() {
     redirect('/login');
   }
 
-  return <ChatUI />;
+  // Check if this is a clone user
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('clone_source_user_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const isClone = !!profile?.clone_source_user_id;
+
+  return <ChatUI isClone={isClone} />;
 }
