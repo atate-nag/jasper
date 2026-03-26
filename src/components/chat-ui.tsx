@@ -52,12 +52,8 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>(() => {
     if (isClone && isFirstVisit) {
-      // First-ever conversation — introduce yourself
+      // First-ever conversation — hardcoded introduction
       return [{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }];
-    }
-    if (isClone && !isFirstVisit && userName) {
-      // Returning user — greet by name
-      return [{ id: 'clone-opener', role: 'assistant', text: `Hey ${userName}.` }];
     }
     return [];
   });
@@ -66,6 +62,20 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);
 
   const isLoading = status === 'streaming' || status === 'submitted';
+
+  // Fetch model-generated opener for returning clone users
+  useEffect(() => {
+    if (isClone && !isFirstVisit && voiceMessages.length === 0) {
+      fetch('/api/chat/opener', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.opener) {
+            setVoiceMessages([{ id: 'clone-opener', role: 'assistant', text: data.opener }]);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for observe data by fetching headers from a lightweight endpoint
   // Alternative: intercept via custom fetch wrapper

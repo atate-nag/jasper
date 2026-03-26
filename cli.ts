@@ -30,6 +30,7 @@ import type { ResponseDirective, SteeringResult, ConversationState } from './src
 
 // Product
 import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser, CLONE_OPENER } from './src/lib/product/identity';
+import { generateReturningOpener } from './src/lib/product/opener';
 import { detectActivity, type Activity } from './src/lib/product/activities/index';
 import { recordUntilEnter } from './src/lib/product/voice/recorder';
 import { transcribe } from './src/lib/product/voice/stt';
@@ -487,13 +488,19 @@ async function main(): Promise<void> {
   if (isCloneUser(profileData) && history.length === 0) {
     let opener: string | null = null;
     if (recentConversations.length === 0) {
-      // First-ever conversation — introduce yourself
+      // First-ever conversation — hardcoded introduction
       opener = CLONE_OPENER;
     } else {
-      // Returning user — greet by name if known, otherwise stay silent
-      const name = profile.identity?.name;
-      if (name) {
-        opener = `Hey ${name}.`;
+      // Returning user — model-generated opener with proactive recall
+      try {
+        opener = await generateReturningOpener(
+          USER_ID,
+          profileData,
+          recentConversations.length,
+        );
+      } catch {
+        const name = profile.identity?.name;
+        opener = name ? `Hey ${name}.` : null;
       }
     }
     if (opener) {
