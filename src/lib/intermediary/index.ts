@@ -85,19 +85,24 @@ function shouldFireDepthScoring(
   conversationState: ConversationState,
   modelTier: string,
 ): boolean {
-  if (modelTier !== 'ambient') return false;
+  // Don't fire on deep tier (already getting full attention) or in development mode
+  if (modelTier === 'deep') return false;
   if (conversationState.conversationDevelopmentMode) return false;
 
   const noveltySignals = [
     directive.emotionalArousal > 0.5,
     directive.communicativeIntent === 'sense_making',
     directive.communicativeIntent === 'sharing',
+    directive.communicativeIntent === 'venting',
     directive.challengeAppropriate === true,
     directive.recommendedPostureClass === 'exploratory',
     directive.recommendedPostureClass === 'analytical',
   ];
 
-  return noveltySignals.filter(Boolean).length >= DEPTH_EVAL_CONFIG.noveltyThreshold;
+  const signalCount = noveltySignals.filter(Boolean).length;
+  // Ambient: need 2+ signals. Standard: need 3+ (higher bar since model is already engaged)
+  const threshold = modelTier === 'ambient' ? DEPTH_EVAL_CONFIG.noveltyThreshold : DEPTH_EVAL_CONFIG.noveltyThreshold + 1;
+  return signalCount >= threshold;
 }
 
 function buildPromptComponents(
