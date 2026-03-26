@@ -17,17 +17,26 @@ export async function POST(req: Request): Promise<Response> {
   whisperForm.append('language', 'en');
   whisperForm.append('response_format', 'text');
 
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-    body: whisperForm,
-  });
+  try {
+    console.log(`[transcribe] File: ${audioFile.name}, size: ${audioFile.size}, type: ${audioFile.type}`);
 
-  if (!response.ok) {
-    const err = await response.text();
-    return Response.json({ error: `Whisper error: ${err}` }, { status: 500 });
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: whisperForm,
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error(`[transcribe] Whisper error: ${err}`);
+      return Response.json({ error: `Whisper ${response.status}: ${err}` }, { status: 500 });
+    }
+
+    const text = await response.text();
+    console.log(`[transcribe] Result: "${text.trim().slice(0, 100)}"`);
+    return Response.json({ text: text.trim() });
+  } catch (err) {
+    console.error('[transcribe] Unhandled error:', err);
+    return Response.json({ error: String(err) }, { status: 500 });
   }
-
-  const text = await response.text();
-  return Response.json({ text: text.trim() });
 }
