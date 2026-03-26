@@ -36,7 +36,13 @@ interface ObserveData {
 
 const CLONE_OPENER = "Hey. I'm Jasper. Good to meet you.";
 
-export function ChatUI({ isClone = false }: { isClone?: boolean } = {}) {
+interface ChatUIProps {
+  isClone?: boolean;
+  isFirstVisit?: boolean;
+  userName?: string | null;
+}
+
+export function ChatUI({ isClone = false, isFirstVisit = false, userName = null }: ChatUIProps = {}) {
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), []);
   const { messages, sendMessage, status } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -45,9 +51,13 @@ export function ChatUI({ isClone = false }: { isClone?: boolean } = {}) {
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>(() => {
-    // Clone opener: Jasper speaks first for new users
-    if (isClone) {
+    if (isClone && isFirstVisit) {
+      // First-ever conversation — introduce yourself
       return [{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }];
+    }
+    if (isClone && !isFirstVisit && userName) {
+      // Returning user — greet by name
+      return [{ id: 'clone-opener', role: 'assistant', text: `Hey ${userName}.` }];
     }
     return [];
   });

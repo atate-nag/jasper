@@ -482,13 +482,25 @@ async function main(): Promise<void> {
   recentConversations = await loadRecentConversations();
   await startConversation();
 
-  // Clone opener: Jasper speaks first for new users
+  // Clone opener: Jasper speaks first — different for first-ever vs returning
   const profileData = profile as unknown as Record<string, unknown>;
   if (isCloneUser(profileData) && history.length === 0) {
-    const opener = CLONE_OPENER;
-    console.log(`\n\x1b[32mai:\x1b[0m ${opener}\n`);
-    history.push({ role: 'assistant', content: opener, timestamp: new Date().toISOString() });
-    persistMessages();
+    let opener: string | null = null;
+    if (recentConversations.length === 0) {
+      // First-ever conversation — introduce yourself
+      opener = CLONE_OPENER;
+    } else {
+      // Returning user — greet by name if known, otherwise stay silent
+      const name = profile.identity?.name;
+      if (name) {
+        opener = `Hey ${name}.`;
+      }
+    }
+    if (opener) {
+      console.log(`\n\x1b[32mai:\x1b[0m ${opener}\n`);
+      history.push({ role: 'assistant', content: opener, timestamp: new Date().toISOString() });
+      persistMessages();
+    }
   }
 
   console.log('  Type your message and press Enter.');
