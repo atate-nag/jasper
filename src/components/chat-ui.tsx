@@ -46,6 +46,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), []);
   const { messages, sendMessage, status } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   const [input, setInput] = useState('');
@@ -94,10 +95,8 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
 
   // Auto-scroll on new messages
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, observeLog]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, voiceMessages, observeLog]);
 
   // Fetch observe data after each response completes
   useEffect(() => {
@@ -307,6 +306,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Observe panel */}
