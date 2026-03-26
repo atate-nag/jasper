@@ -100,9 +100,7 @@ function shouldFireDepthScoring(
   ];
 
   const signalCount = noveltySignals.filter(Boolean).length;
-  // Ambient: need 2+ signals. Standard: need 3+ (higher bar since model is already engaged)
-  const threshold = modelTier === 'ambient' ? DEPTH_EVAL_CONFIG.noveltyThreshold : DEPTH_EVAL_CONFIG.noveltyThreshold + 1;
-  return signalCount >= threshold;
+  return signalCount >= DEPTH_EVAL_CONFIG.noveltyThreshold;
 }
 
 function buildPromptComponents(
