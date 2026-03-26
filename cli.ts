@@ -223,6 +223,10 @@ async function handleMessage(input: string): Promise<string> {
       }
       if (threads) console.log(`  threads: ${threads} | energy: ${cs.energyTrajectory}`);
     }
+    // Depth evaluation status
+    if (steering.modelConfig.tier === 'ambient') {
+      console.log(`${yellow}[DEPTH-EVAL]${reset} eligible for scoring`);
+    }
     console.log('');
   } else if (observeMode === 'verbose') {
     observe('CLASSIFICATION', JSON.stringify(steering.responseDirective, null, 2));

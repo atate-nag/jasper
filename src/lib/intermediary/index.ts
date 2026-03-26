@@ -14,6 +14,9 @@ import { assemblePrompt, type PromptComponent } from './prompt-assembler';
 import { reformulate } from './reformulator';
 import { validate } from './validation';
 import { antiSycophancyReinjection } from './sycophancy';
+import { scoreDepth } from './depth-scoring';
+import { storePendingDepth, consumePendingDepth, type PendingDepth } from './pending-depth';
+import { DEPTH_EVAL_CONFIG } from './depth-config';
 
 function determineModelConfig(directive: ResponseDirective, ctx: PersonContext): ModelConfig {
   const depth = ctx.relationshipMeta.conversationCount > 15 ? 'established' : 'other';
@@ -77,6 +80,26 @@ function formatTimeAgo(date: Date): string {
   return `${Math.floor(diffDays / 365)} years ago`;
 }
 
+function shouldFireDepthScoring(
+  directive: ResponseDirective,
+  conversationState: ConversationState,
+  modelTier: string,
+): boolean {
+  if (modelTier !== 'ambient') return false;
+  if (conversationState.conversationDevelopmentMode) return false;
+
+  const noveltySignals = [
+    directive.emotionalArousal > 0.5,
+    directive.communicativeIntent === 'sense_making',
+    directive.communicativeIntent === 'sharing',
+    directive.challengeAppropriate === true,
+    directive.recommendedPostureClass === 'exploratory',
+    directive.recommendedPostureClass === 'analytical',
+  ];
+
+  return noveltySignals.filter(Boolean).length >= DEPTH_EVAL_CONFIG.noveltyThreshold;
+}
+
 function buildPromptComponents(
   productIdentity: ProductIdentity,
   personContext: PersonContext,
@@ -84,6 +107,7 @@ function buildPromptComponents(
   directive: ResponseDirective,
   sessionHistory: Message[],
   voiceMode: boolean = false,
+  pendingDepth?: PendingDepth | null,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
@@ -371,6 +395,16 @@ You are speaking out loud. Your response will be converted to speech.
     });
   }
 
+  // Depth signal from fascination threshold
+  if (pendingDepth) {
+    components.push({
+      priority: 80,
+      content: `[DEPTH SIGNAL]: The previous exchange contained a thread worth pulling: "${pendingDepth.thread}" (${pendingDepth.dimension}). Consider weaving this into your response naturally if the conversation allows it. Do not force it. If the conversation has moved on, let it go. Do not announce that you noticed something — just follow the thread as though it occurred to you naturally.`,
+      label: 'depth_signal',
+      tokenEstimate: 80,
+    });
+  }
+
   return components;
 }
 
@@ -430,6 +464,10 @@ export async function steer(
       conversationState,
     };
   }
+
+  // Check for pending depth thread from previous turn
+  const turnNumber = sessionHistory.filter(m => m.role === 'user').length;
+  const pendingDepth = consumePendingDepth(personContext.profile.user_id, turnNumber);
 
   // 1. Classify
   const rawDirective = await classify(userMessage, personContext, sessionHistory, previousDirective);
@@ -497,7 +535,7 @@ export async function steer(
   const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
 
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message
@@ -510,6 +548,23 @@ export async function steer(
   const isSubstantive = directive.communicativeIntent !== 'connecting' &&
     directive.conversationalPhase !== 'opening' &&
     userMessage.split(/\s+/).length > 5;
+
+  // Fire async depth scoring if conditions are met
+  if (shouldFireDepthScoring(directive, conversationState, modelConfig.tier)) {
+    const userTurnCount = sessionHistory.filter(m => m.role === 'user').length;
+    Promise.race([
+      scoreDepth(userMessage, sessionHistory),
+      new Promise<null>(resolve => setTimeout(() => resolve(null), DEPTH_EVAL_CONFIG.evaluationTimeout)),
+    ]).then(result => {
+      if (result && result.score >= DEPTH_EVAL_CONFIG.scoreThreshold && result.thread) {
+        storePendingDepth(personContext.profile.user_id, {
+          thread: result.thread,
+          dimension: result.dimension || 'connection',
+          score: result.score,
+        }, userTurnCount);
+      }
+    }).catch(err => console.error('[depth-scoring] Async error:', err));
+  }
 
   return {
     systemPrompt,
