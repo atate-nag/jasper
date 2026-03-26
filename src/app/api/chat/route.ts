@@ -57,9 +57,6 @@ export async function POST(req: Request): Promise<Response> {
       timestamp: new Date().toISOString(),
     }));
 
-  // Track message count per turn — should grow by 2 every turn
-  console.log(`[history] Turn: rawMessages=${rawMessages.length}, sessionHistory=${sessionHistory.length}, roles=[${sessionHistory.map(m => m.role[0]).join(',')}], lastUser="${lastUserMessage.slice(0, 60)}"`);
-
   try {
     // 1. Backbone: get person context
     const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
@@ -77,16 +74,11 @@ export async function POST(req: Request): Promise<Response> {
     const steering = await steer(lastUserMessage, personContext, jasperIdentity, sessionHistory, previousDirective);
     const steerLatencyMs = Date.now() - steerStart;
 
-    // Server-side observe log
+    // Consolidated turn log — one block with everything
     const d = steering.responseDirective;
     const sysPromptWords = steering.systemPrompt.split(/\s+/).length;
     const historyWords = sessionHistory.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
-    console.log(`[OBSERVE] intent: ${d.communicativeIntent} | posture: ${d.recommendedPostureClass} | conf: ${d.confidence} | policy: ${steering.selectedPolicy.id} | model: ${steering.modelConfig.model} (${steering.modelConfig.tier}) | steer: ${steerLatencyMs}ms`);
-    console.log(`[OBSERVE]   system prompt: ~${sysPromptWords} words | history: ${sessionHistory.length} msgs (~${historyWords} words) | total context: ~${sysPromptWords + historyWords} words`);
-    console.log(`[OBSERVE]   → "${d.rationale.substring(0, 120)}${d.rationale.length > 120 ? '...' : ''}"`);
-    if (d.recallTriggered) {
-      console.log(`[OBSERVE]   recall: ${d.recallTier} query="${d.recallQuery}"`);
-    }
+    console.log(`[TURN] msgs=${sessionHistory.length} (${historyWords}w) | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | user="${lastUserMessage.slice(0, 50)}"`);
 
     // 3. Get or create conversation for persistence
     const conversationId = await getOrCreateConversation(user.id);
