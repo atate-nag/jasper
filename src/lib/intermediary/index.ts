@@ -43,12 +43,14 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
 
   let maxTokens = providerConfig.maxTokens;
 
-  // Apply policy length constraints — these are hard caps
+  // Apply policy length constraints — safety caps, not targets
+  // The identity prompt encourages brevity. These prevent runaway responses
+  // but should never truncate a coherent thought mid-sentence.
   const LENGTH_TO_TOKENS: Record<string, number> = {
-    minimal: 60,
-    short: 200,
-    medium: 400,
-    long: 800,
+    minimal: 150,
+    short: 400,
+    medium: 800,
+    long: 1500,
   };
   const lengthCap = LENGTH_TO_TOKENS[directive.recommendedResponseLength] ?? 400;
   maxTokens = Math.min(maxTokens, lengthCap);
