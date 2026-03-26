@@ -15,7 +15,7 @@ const supabase = createClient(url, key);
 
 const REDIRECT_URL = process.env.NEXT_PUBLIC_APP_URL
   ? `${process.env.NEXT_PUBLIC_APP_URL}/welcome`
-  : 'http://localhost:3000/welcome';
+  : 'https://jasper-sigma.vercel.app/welcome';
 
 const emails = process.argv.slice(2);
 

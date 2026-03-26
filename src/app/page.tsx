@@ -11,11 +11,23 @@ export default async function HomePage() {
   }
 
   // Check if this is a clone user and whether they have previous conversations
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from('user_profiles')
     .select('clone_source_user_id, identity')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // Safety net: create clone profile if none exists (handles direct navigation)
+  if (!profile) {
+    const { createCloneProfile } = await import('@/lib/backbone/clone');
+    await createCloneProfile(user.id);
+    const { data: newProfile } = await supabase
+      .from('user_profiles')
+      .select('clone_source_user_id, identity')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    profile = newProfile;
+  }
 
   const isClone = !!profile?.clone_source_user_id;
 
