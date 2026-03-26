@@ -409,9 +409,9 @@ function buildPromptComponents(
     }
   }
 
-  // Current state — boosted priority for emotional intents
+  // Current state — skip for light intents, boosted priority for emotional intents
   const currentState = personContext.profile.current_state;
-  if (currentState) {
+  if (currentState && !isLightIntent) {
     const stateParts: string[] = [];
     if (currentState.active_concerns?.length) {
       stateParts.push(`Active concerns: ${currentState.active_concerns.join('; ')}`);
