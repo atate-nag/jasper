@@ -507,6 +507,7 @@ async function main(): Promise<void> {
   process.on('SIGINT', gracefulShutdown);
 
   const prompt = (): void => {
+    if (shuttingDown) return;
     rl.question('\x1b[36myou:\x1b[0m ', async (input) => {
       const trimmed = input.trim();
       if (!trimmed) return prompt();
@@ -613,7 +614,7 @@ async function main(): Promise<void> {
         console.error(`\n\x1b[31merror:\x1b[0m ${msg}\n`);
       }
 
-      prompt();
+      if (!shuttingDown) prompt();
     });
   };
 

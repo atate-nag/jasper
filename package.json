@@ -9,7 +9,8 @@
     "lint": "eslint",
     "jasper": "tsx cli.ts",
     "test-jasper": "JASPER_USER_ID=eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee tsx cli.ts",
-    "reset-test": "tsx scripts/reset-test-user.ts"
+    "reset-test": "tsx scripts/reset-test-user.ts",
+    "archive-test": "tsx scripts/archive-test-user.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.63",
