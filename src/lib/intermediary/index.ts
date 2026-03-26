@@ -165,39 +165,58 @@ function buildPromptComponents(
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
 
-  // Priority 100: Identity
-  components.push({
-    priority: 100,
-    content: productIdentity.identityPrompt,
-    label: 'identity',
-    tokenEstimate: est(productIdentity.identityPrompt),
-  });
+  // Determine if this is a light conversation — light intents get a stripped-down prompt
+  const isLightIntent = directive.communicativeIntent === 'connecting' ||
+    directive.recommendedPostureClass === 'playful' ||
+    directive.recommendedPostureClass === 'minimal';
 
-  // Priority 95: Core obligations
-  const obligations = `${productIdentity.obligations}\n\n${productIdentity.antiLabellingRule}`;
-  components.push({
-    priority: 95,
-    content: obligations,
-    label: 'obligations',
-    tokenEstimate: est(obligations),
-  });
-
-  // Priority 88: Person context — who you're talking to
-  const personBlock = buildPersonContextBlock(
-    personContext.profile,
-    personContext.relationshipMeta.conversationCount,
-  );
-  if (personBlock) {
+  // Priority 100: Identity — use full or condensed version
+  if (isLightIntent) {
+    // Condensed identity for light exchanges — just character + name + key rules
+    const name = personContext.profile.identity?.name;
+    const condensed = `Your name is Jasper. You are direct, curious, slightly dry. You lead with substance. You keep responses short — a few sentences.${name ? ` You are talking to ${name}.` : ''} You never fabricate memories. You have full access to this conversation's history.`;
     components.push({
-      priority: 88,
-      content: personBlock,
-      label: 'person_context_block',
-      tokenEstimate: est(personBlock),
+      priority: 100,
+      content: condensed,
+      label: 'identity',
+      tokenEstimate: est(condensed),
+    });
+  } else {
+    components.push({
+      priority: 100,
+      content: productIdentity.identityPrompt,
+      label: 'identity',
+      tokenEstimate: est(productIdentity.identityPrompt),
+    });
+
+    // Priority 95: Core obligations — only for substantive exchanges
+    const obligations = `${productIdentity.obligations}\n\n${productIdentity.antiLabellingRule}`;
+    components.push({
+      priority: 95,
+      content: obligations,
+      label: 'obligations',
+      tokenEstimate: est(obligations),
     });
   }
 
-  // Priority 55: Session-start recall — what you remember about this person
-  if (sessionStartRecall) {
+  // Priority 88: Person context — who you're talking to (skip for light if already in condensed identity)
+  if (!isLightIntent) {
+    const personBlock = buildPersonContextBlock(
+      personContext.profile,
+      personContext.relationshipMeta.conversationCount,
+    );
+    if (personBlock) {
+      components.push({
+        priority: 88,
+        content: personBlock,
+        label: 'person_context_block',
+        tokenEstimate: est(personBlock),
+      });
+    }
+  }
+
+  // Priority 55: Session-start recall — skip for light intents
+  if (sessionStartRecall && !isLightIntent) {
     components.push({
       priority: 55,
       content: sessionStartRecall,
@@ -206,20 +225,22 @@ function buildPromptComponents(
     });
   }
 
-  // Priority 90: Anti-sycophancy re-injection
-  const turnCount = sessionHistory.filter(m => m.role === 'user').length;
-  const reinjection = antiSycophancyReinjection(turnCount);
-  if (reinjection) {
-    components.push({
-      priority: 90,
-      content: reinjection,
-      label: 'anti_sycophancy',
-      tokenEstimate: est(reinjection),
-    });
+  // Priority 90: Anti-sycophancy re-injection — skip for light intents
+  if (!isLightIntent) {
+    const turnCount = sessionHistory.filter(m => m.role === 'user').length;
+    const reinjection = antiSycophancyReinjection(turnCount);
+    if (reinjection) {
+      components.push({
+        priority: 90,
+        content: reinjection,
+        label: 'anti_sycophancy',
+        tokenEstimate: est(reinjection),
+      });
+    }
   }
 
-  // Priority 88: Self-observations from metacognitive layer
-  if (personContext.selfObservations && personContext.selfObservations.length > 0) {
+  // Priority 88: Self-observations — skip for light intents
+  if (!isLightIntent && personContext.selfObservations && personContext.selfObservations.length > 0) {
     const uninjected = personContext.selfObservations.filter(obs => !obs.injected);
     if (uninjected.length > 0) {
       const obsLines = uninjected.flatMap(obs =>
