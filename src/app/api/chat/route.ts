@@ -57,15 +57,6 @@ export async function POST(req: Request): Promise<Response> {
       timestamp: new Date().toISOString(),
     }));
 
-  // Debug: log message state
-  console.log(`[web-debug] Messages received: ${rawMessages.length}`);
-  console.log(`[web-debug] Session history built: ${sessionHistory.length}`);
-  console.log(`[web-debug] Message roles: ${sessionHistory.map(m => m.role).join(', ')}`);
-  console.log(`[web-debug] Last 3 messages:`, sessionHistory.slice(-3).map(m => ({
-    role: m.role,
-    content: m.content.substring(0, 80),
-  })));
-
   try {
     // 1. Backbone: get person context
     const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
