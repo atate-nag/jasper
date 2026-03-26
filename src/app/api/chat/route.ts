@@ -76,7 +76,10 @@ export async function POST(req: Request): Promise<Response> {
 
     // Server-side observe log
     const d = steering.responseDirective;
+    const sysPromptWords = steering.systemPrompt.split(/\s+/).length;
+    const historyWords = sessionHistory.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
     console.log(`[OBSERVE] intent: ${d.communicativeIntent} | posture: ${d.recommendedPostureClass} | conf: ${d.confidence} | policy: ${steering.selectedPolicy.id} | model: ${steering.modelConfig.model} (${steering.modelConfig.tier}) | steer: ${steerLatencyMs}ms`);
+    console.log(`[OBSERVE]   system prompt: ~${sysPromptWords} words | history: ${sessionHistory.length} msgs (~${historyWords} words) | total context: ~${sysPromptWords + historyWords} words`);
     console.log(`[OBSERVE]   → "${d.rationale.substring(0, 120)}${d.rationale.length > 120 ? '...' : ''}"`);
     if (d.recallTriggered) {
       console.log(`[OBSERVE]   recall: ${d.recallTier} query="${d.recallQuery}"`);
