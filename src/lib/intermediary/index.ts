@@ -551,17 +551,25 @@ export async function steer(
 
   // Fire async depth scoring if conditions are met
   if (shouldFireDepthScoring(directive, conversationState, modelConfig.tier)) {
+    console.log('[depth-scoring] Firing async evaluation...');
     const userTurnCount = sessionHistory.filter(m => m.role === 'user').length;
     Promise.race([
       scoreDepth(userMessage, sessionHistory),
       new Promise<null>(resolve => setTimeout(() => resolve(null), DEPTH_EVAL_CONFIG.evaluationTimeout)),
     ]).then(result => {
-      if (result && result.score >= DEPTH_EVAL_CONFIG.scoreThreshold && result.thread) {
+      if (!result) {
+        console.log('[depth-scoring] Timeout or null result');
+        return;
+      }
+      console.log(`[depth-scoring] Score: ${result.score}/${DEPTH_EVAL_CONFIG.scoreThreshold}, dim: ${result.dimension}, thread: "${result.thread}"`);
+      if (result.score >= DEPTH_EVAL_CONFIG.scoreThreshold && result.thread) {
         storePendingDepth(personContext.profile.user_id, {
           thread: result.thread,
           dimension: result.dimension || 'connection',
           score: result.score,
         }, userTurnCount);
+      } else {
+        console.log('[depth-scoring] Below threshold, discarded');
       }
     }).catch(err => console.error('[depth-scoring] Async error:', err));
   }

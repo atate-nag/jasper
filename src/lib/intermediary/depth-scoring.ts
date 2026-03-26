@@ -76,6 +76,7 @@ export async function scoreDepth(
     .replace('{user_message}', userMessage);
 
   try {
+    console.log('[depth-scoring] Calling Sonnet...');
     const anthropic = new Anthropic();
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -89,8 +90,14 @@ export async function scoreDepth(
       .map(b => (b as { type: 'text'; text: string }).text)
       .join('');
 
-    const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+    console.log('[depth-scoring] Raw output:', text.slice(0, 200));
+
+    const cleaned = text
+      .replace(/^\s*```(?:json)?\s*\n?/i, '')
+      .replace(/\n?\s*```\s*$/i, '')
+      .trim();
     const parsed = JSON.parse(cleaned);
+    console.log('[depth-scoring] Parsed:', JSON.stringify(parsed));
 
     return {
       score: typeof parsed.score === 'number' ? parsed.score : 0,

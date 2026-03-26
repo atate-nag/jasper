@@ -1,4 +1,6 @@
 // Reset the ephemeral test user to a clean cold-start state.
+// Deletes ALL data (conversations, segments, turn logs, profile)
+// then creates a fresh clone profile from Master Jasper.
 // Usage: npx tsx scripts/reset-test-user.ts
 
 import { config } from 'dotenv';
@@ -14,35 +16,31 @@ async function main(): Promise<void> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
-  const { defaultCalibration } = await import('../src/lib/backbone/profile');
-
   console.log('Resetting test user:', TEST_USER_ID);
 
-  // Delete all data
+  // Delete ALL data — order matters for foreign key constraints
   for (const table of ['turn_logs', 'conversation_segments', 'conversations', 'bandit_state', 'user_profiles']) {
-    const { count } = await sb.from(table).delete({ count: 'exact' }).eq('user_id', TEST_USER_ID);
-    if (count) console.log(`  ${table}: deleted ${count} rows`);
+    const { count, error } = await sb.from(table).delete({ count: 'exact' }).eq('user_id', TEST_USER_ID);
+    if (error) {
+      console.log(`  ${table}: error — ${error.message}`);
+    } else if (count) {
+      console.log(`  ${table}: deleted ${count} rows`);
+    }
   }
 
-  // Create fresh profile
-  const { error } = await sb.from('user_profiles').insert({
-    user_id: TEST_USER_ID,
-    identity: {},
-    values: {},
-    patterns: {},
-    relationships: {},
-    current_state: {},
-    interaction_prefs: {},
-    calibration: defaultCalibration(),
-    self_observations: [],
-  });
-
-  if (error) {
-    console.error('Failed to create profile:', error.message);
-  } else {
-    console.log('\nClean slate ready. Run:\n');
-    console.log('  npm run test-jasper\n');
+  // Verify deletion
+  const { count: remainingConvos } = await sb.from('conversations').select('*', { count: 'exact', head: true }).eq('user_id', TEST_USER_ID);
+  const { count: remainingSegments } = await sb.from('conversation_segments').select('*', { count: 'exact', head: true }).eq('user_id', TEST_USER_ID);
+  if (remainingConvos || remainingSegments) {
+    console.log(`  WARNING: ${remainingConvos} conversations and ${remainingSegments} segments still remain!`);
   }
+
+  // Create fresh clone profile from Master Jasper
+  const { createCloneProfile } = await import('../src/lib/backbone/clone');
+  await createCloneProfile(TEST_USER_ID);
+
+  console.log('\nClean slate ready. Run:\n');
+  console.log('  npm run test-jasper\n');
 }
 
 main().catch(console.error);
