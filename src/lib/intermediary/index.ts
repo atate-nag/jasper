@@ -283,16 +283,18 @@ function buildPromptComponents(
     tokenEstimate: est(timeContext),
   });
 
-  // Priority 75: Interaction preferences
-  const prefs = personContext.profile.interaction_prefs;
-  if (prefs && Object.keys(prefs).length > 0) {
-    const prefText = `HOW THIS PERSON COMMUNICATES:\n${Object.entries(prefs).filter(([,v]) => v).map(([k,v]) => `- ${k}: ${v}`).join('\n')}`;
-    components.push({
-      priority: 75,
-      content: prefText,
-      label: 'interaction_prefs',
-      tokenEstimate: est(prefText),
-    });
+  // Priority 75: Interaction preferences — skip for light intents
+  if (!isLightIntent) {
+    const prefs = personContext.profile.interaction_prefs;
+    if (prefs && Object.keys(prefs).length > 0) {
+      const prefText = `HOW THIS PERSON COMMUNICATES:\n${Object.entries(prefs).filter(([,v]) => v).map(([k,v]) => `- ${k}: ${v}`).join('\n')}`;
+      components.push({
+        priority: 75,
+        content: prefText,
+        label: 'interaction_prefs',
+        tokenEstimate: est(prefText),
+      });
+    }
   }
 
   // Priority 70 (shallow) or 85 (deep): Recalled segments
@@ -393,22 +395,24 @@ function buildPromptComponents(
     // For light intents: patterns are simply not included in the prompt
   }
 
-  // Priority 50: Profile summary
-  const profileParts: string[] = [];
-  const p = personContext.profile;
-  if (p.identity && Object.keys(p.identity).length > 0) {
-    profileParts.push(`Identity: ${Object.entries(p.identity).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`).join(', ')}`);
-  }
-  if (p.values?.core_values?.length) profileParts.push(`Values: ${p.values.core_values.join(', ')}`);
-  if (p.relationships?.key_dynamics?.length) profileParts.push(`Key dynamics: ${p.relationships.key_dynamics.join('; ')}`);
-  if (profileParts.length > 0) {
-    const profileText = `ABOUT THIS PERSON:\n${profileParts.join('\n')}`;
-    components.push({
-      priority: 50,
-      content: profileText,
-      label: 'profile_summary',
-      tokenEstimate: est(profileText),
-    });
+  // Priority 50: Profile summary — skip for light intents
+  if (!isLightIntent) {
+    const profileParts: string[] = [];
+    const p = personContext.profile;
+    if (p.identity && Object.keys(p.identity).length > 0) {
+      profileParts.push(`Identity: ${Object.entries(p.identity).filter(([,v]) => v).map(([k,v]) => `${k}: ${v}`).join(', ')}`);
+    }
+    if (p.values?.core_values?.length) profileParts.push(`Values: ${p.values.core_values.join(', ')}`);
+    if (p.relationships?.key_dynamics?.length) profileParts.push(`Key dynamics: ${p.relationships.key_dynamics.join('; ')}`);
+    if (profileParts.length > 0) {
+      const profileText = `ABOUT THIS PERSON:\n${profileParts.join('\n')}`;
+      components.push({
+        priority: 50,
+        content: profileText,
+        label: 'profile_summary',
+        tokenEstimate: est(profileText),
+      });
+    }
   }
 
   // Current state — boosted priority for emotional intents
