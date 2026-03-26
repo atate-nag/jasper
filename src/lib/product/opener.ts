@@ -1,16 +1,11 @@
 // Generate a returning-user opener using Haiku + proactive recall.
 // Fast (~500ms), references shared history, feels like recognition not recap.
 
-import Anthropic from '@anthropic-ai/sdk';
 import { recall } from '@/lib/backbone/recall';
 import type { RecallRequest } from '@/lib/backbone/recall';
 import { getSupabase } from '@/lib/supabase';
-
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic();
-  return _anthropic;
-}
+import { callModel } from '@/lib/model-client';
+import { getModelRouting } from '@/lib/config/models';
 
 async function getProactiveRecall(
   userId: string,
@@ -77,19 +72,18 @@ Examples of bad openers:
 Keep it short. Keep it warm. Reference something real. No questions about how they're doing unless tied to something specific.`;
 
   try {
-    const response = await getAnthropic().messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 100,
-      temperature: 0.7,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const routing = getModelRouting();
+    const response = await callModel(
+      routing.opener,
+      '',
+      [{ role: 'user', content: prompt }],
+    );
 
-    const text = response.content[0];
-    if (text.type !== 'text' || !text.text || text.text.length > 200) {
+    if (!response || response.length > 200) {
       return `Hey ${name}.`;
     }
 
-    return text.text.trim();
+    return response.trim();
   } catch (err) {
     console.error('[opener] Failed to generate returning opener:', err);
     return `Hey ${name}.`;

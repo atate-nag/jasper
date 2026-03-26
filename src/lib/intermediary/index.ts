@@ -17,35 +17,38 @@ import { antiSycophancyReinjection } from './sycophancy';
 import { scoreDepth } from './depth-scoring';
 import { storePendingDepth, consumePendingDepth, type PendingDepth } from './pending-depth';
 import { DEPTH_EVAL_CONFIG } from './depth-config';
+import { getModelRouting } from '@/lib/config/models';
 
 function determineModelConfig(directive: ResponseDirective, ctx: PersonContext): ModelConfig {
   const depth = ctx.relationshipMeta.conversationCount > 15 ? 'established' : 'other';
 
   let tier: 'ambient' | 'standard' | 'deep' = 'standard';
-  let model = 'claude-sonnet-4-6';
-  let maxTokens = 2048;
 
   // Recall-triggered messages always get at least standard tier
   const recallBoost = directive.recallTriggered && directive.recallTier !== 'none';
 
   if (directive.communicativeIntent === 'distress') {
-    tier = 'deep'; model = 'claude-opus-4-6'; maxTokens = 4096;
+    tier = 'deep';
   } else if (directive.communicativeIntent === 'connecting' && !recallBoost) {
-    tier = 'ambient'; model = 'claude-haiku-4-5-20251001'; maxTokens = 512;
+    tier = 'ambient';
   } else if (directive.communicativeIntent === 'requesting_input' && directive.emotionalArousal > 0.7) {
-    tier = 'deep'; model = 'claude-opus-4-6'; maxTokens = 4096;
+    tier = 'deep';
   } else if (directive.communicativeIntent === 'sense_making' && depth === 'established') {
-    tier = 'deep'; model = 'claude-opus-4-6'; maxTokens = 4096;
-  } else if (directive.confidence < 0.3) {
-    tier = 'standard'; model = 'claude-sonnet-4-6'; maxTokens = 2048;
+    tier = 'deep';
   }
+
+  // Get provider config from routing
+  const routing = getModelRouting();
+  const providerConfig = routing[tier];
+
+  let maxTokens = providerConfig.maxTokens;
 
   // Apply policy length constraints — these are hard caps
   const LENGTH_TO_TOKENS: Record<string, number> = {
-    minimal: 60,     // 1-2 sentences, ~40-50 words
-    short: 200,      // 1 paragraph, ~100-150 words
-    medium: 400,     // 2 short paragraphs, ~200-300 words
-    long: 800,       // 3 paragraphs max, ~400-600 words
+    minimal: 60,
+    short: 200,
+    medium: 400,
+    long: 800,
   };
   const lengthCap = LENGTH_TO_TOKENS[directive.recommendedResponseLength] ?? 400;
   maxTokens = Math.min(maxTokens, lengthCap);
@@ -54,7 +57,7 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
   const [min, max] = tempRanges[tier];
   let temperature = min + Math.random() * (max - min);
 
-  // Cap temperature for shallow relationships to prevent confabulation
+  // Cap temperature for shallow relationships
   const relDepth = ctx.relationshipMeta.conversationCount;
   if (relDepth <= 1) {
     temperature = Math.min(temperature, 0.7);
@@ -62,7 +65,13 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
     temperature = Math.min(temperature, 0.8);
   }
 
-  return { tier, provider: 'anthropic', model, temperature: Math.round(temperature * 100) / 100, maxTokens };
+  return {
+    tier,
+    provider: providerConfig.provider,
+    model: providerConfig.model,
+    temperature: Math.round(temperature * 100) / 100,
+    maxTokens,
+  };
 }
 
 function formatTimeAgo(date: Date): string {

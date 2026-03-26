@@ -1,5 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { Message } from '@/types/message';
+import { callModel } from '@/lib/model-client';
+import { getModelRouting } from '@/lib/config/models';
 
 const DEPTH_SCORING_PROMPT = `You are evaluating a conversational message for latent depth.
 Your job is not to respond to the message. Your job is to
@@ -76,19 +77,13 @@ export async function scoreDepth(
     .replace('{user_message}', userMessage);
 
   try {
-    console.log('[depth-scoring] Calling Sonnet...');
-    const anthropic = new Anthropic();
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 200,
-      temperature: 0.3,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text = response.content
-      .filter(b => b.type === 'text')
-      .map(b => (b as { type: 'text'; text: string }).text)
-      .join('');
+    console.log('[depth-scoring] Calling model...');
+    const routing = getModelRouting();
+    const text = await callModel(
+      routing.depthScoring,
+      '',
+      [{ role: 'user', content: prompt }],
+    );
 
     console.log('[depth-scoring] Raw output:', text.slice(0, 200));
 

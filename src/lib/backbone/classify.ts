@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { UserProfile, UserProfileUpdate } from './types';
 import type { Message } from '@/types/message';
+import { callModel } from '@/lib/model-client';
+import { getModelRouting } from '@/lib/config/models';
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -16,8 +18,6 @@ export async function classifyConversation(
   profileUpdates: UserProfileUpdate;
   resolvedConcerns: string[];
 }> {
-  const anthropic = new Anthropic();
-
   const conversationText = messages
     .map((m) => {
       // Truncate very long messages to prevent classifier token overflow
@@ -103,14 +103,12 @@ Respond with ONLY valid JSON in this exact format:
 Return raw JSON only. No markdown backticks, no commentary, no explanation.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const routing = getModelRouting();
+    const text = await callModel(
+      routing.classification,
+      '',
+      [{ role: 'user', content: prompt }],
+    );
 
     // Strip markdown fencing — handle whitespace, newlines, multiple backtick styles
     const cleaned = text
