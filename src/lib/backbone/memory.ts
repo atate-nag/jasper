@@ -66,6 +66,8 @@ export async function searchMemories(
   query: string,
   limit: number = 10,
 ): Promise<MemoryResult[]> {
+  if (process.env.VERCEL) return [];
+
   try {
     const mem0 = getMem0();
     const results = await mem0.search(query, {
@@ -97,13 +99,15 @@ export async function addToMemory(
   userId: string,
   messages: { role: string; content: string }[],
 ): Promise<void> {
+  // Skip on serverless (Vercel) — mem0 needs a writable filesystem
+  if (process.env.VERCEL) return;
+
   try {
     const mem0 = getMem0();
     await mem0.add(messages, {
       userId,
     });
   } catch (err) {
-    // Suppress mem0 internal errors — non-critical path
     console.warn('[memory] Add error (suppressed):', err);
   }
 }
@@ -115,6 +119,8 @@ export async function addToMemory(
 export async function getAllMemories(
   userId: string,
 ): Promise<MemoryResult[]> {
+  if (process.env.VERCEL) return [];
+
   try {
     const mem0 = getMem0();
     const results = await mem0.getAll({
