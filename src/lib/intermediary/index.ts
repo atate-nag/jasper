@@ -43,17 +43,11 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
 
   let maxTokens = providerConfig.maxTokens;
 
-  // Apply policy length constraints — safety caps, not targets
-  // The identity prompt encourages brevity. These prevent runaway responses
-  // but should never truncate a coherent thought mid-sentence.
-  const LENGTH_TO_TOKENS: Record<string, number> = {
-    minimal: 150,
-    short: 400,
-    medium: 800,
-    long: 1500,
-  };
-  const lengthCap = LENGTH_TO_TOKENS[directive.recommendedResponseLength] ?? 400;
-  maxTokens = Math.min(maxTokens, lengthCap);
+  // Length guidance is handled by the identity prompt ("keep it short").
+  // Hard caps here are only a safety net against truly runaway generation.
+  // They should NEVER truncate a coherent thought mid-sentence.
+  const SAFETY_CAP = 2000;
+  maxTokens = Math.min(maxTokens, SAFETY_CAP);
 
   const tempRanges = { ambient: [0.7, 1.0], standard: [0.6, 0.95], deep: [0.5, 0.8] };
   const [min, max] = tempRanges[tier];
