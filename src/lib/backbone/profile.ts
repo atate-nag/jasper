@@ -223,6 +223,54 @@ export async function mergeProfileUpdates(
       }
     }
 
+    // Hard array caps — the classifier prompt asks for limits but doesn't respect them.
+    // This is the enforcement layer. When an array exceeds its cap, keep only the
+    // most recent entries (last N). The compression script handles quality merging;
+    // this just prevents unbounded growth between compressions.
+    const ARRAY_CAPS: Record<string, number> = {
+      decision_patterns: 8,
+      growth_edges: 6,
+      stress_responses: 4,
+      avoidance_patterns: 4,
+      humor_engagement: 4,
+      active_concerns: 6,
+      recent_wins: 6,
+      open_questions: 8,
+      key_dynamics: 8,
+      core_values: 8,
+      priorities: 6,
+      children: 4,
+      colleagues: 4,
+    };
+
+    for (const [key, value] of Object.entries(fieldMerged)) {
+      if (Array.isArray(value)) {
+        const cap = ARRAY_CAPS[key];
+        if (cap && value.length > cap) {
+          fieldMerged[key] = value.slice(-cap); // keep most recent
+        }
+      }
+    }
+
+    // Reject any new keys not in the canonical schema
+    const CANONICAL_KEYS: Record<string, string[]> = {
+      identity: ['name', 'age_range', 'location', 'occupation', 'living_situation', 'neurodivergence'],
+      values: ['core_values', 'priorities', 'what_matters_most'],
+      patterns: ['stress_responses', 'decision_patterns', 'avoidance_patterns', 'growth_edges', 'humor_engagement'],
+      relationships: ['partner', 'children', 'colleagues', 'key_dynamics'],
+      current_state: ['active_concerns', 'mood_trajectory', 'recent_wins', 'open_questions'],
+      interaction_prefs: ['humour_receptivity', 'challenge_tolerance', 'entertainment_style', 'feedback_receptivity', 'directness_preference', 'entertainment_request_style', 'intellectual_engagement_framing'],
+    };
+
+    const allowedKeys = CANONICAL_KEYS[field];
+    if (allowedKeys) {
+      for (const key of Object.keys(fieldMerged)) {
+        if (!allowedKeys.includes(key)) {
+          delete fieldMerged[key];
+        }
+      }
+    }
+
     merged[field] = fieldMerged;
   }
 
