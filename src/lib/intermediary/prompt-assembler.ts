@@ -44,6 +44,12 @@ export function assemblePrompt(
     ...policyDirectives,
   ];
 
+  // Log component sizes
+  console.log(`[prompt] Components included: ${included.length}, excluded: ${excluded.length}, total ~${tokenCount} tokens`);
+  for (const c of reordered) {
+    console.log(`[prompt]   ${c.label}: ~${c.tokenEstimate} tokens (priority ${c.priority})`);
+  }
+
   return {
     prompt: reordered.map(c => c.content).join('\n\n'),
     includedComponents: reordered.map(c => c.label),
