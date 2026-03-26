@@ -18,19 +18,19 @@ const DEFAULT_ROUTING: ModelRouting = {
   ambient: {
     provider: 'anthropic',
     model: 'claude-haiku-4-5-20251001',
-    maxTokens: 200,
+    maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   standard: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    maxTokens: 400,
+    maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   deep: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    maxTokens: 800,
+    maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   depthScoring: {
@@ -58,13 +58,13 @@ const MIXED_ROUTING: ModelRouting = {
   ambient: {
     provider: 'openai',
     model: 'gpt-5.4-mini',
-    maxTokens: 200,
+    maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   deep: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
-    maxTokens: 800,
+    maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   opener: {
