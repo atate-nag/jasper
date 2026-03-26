@@ -57,6 +57,9 @@ export async function POST(req: Request): Promise<Response> {
       timestamp: new Date().toISOString(),
     }));
 
+  // Track message count per turn — should grow by 2 every turn
+  console.log(`[history] Turn: rawMessages=${rawMessages.length}, sessionHistory=${sessionHistory.length}, roles=[${sessionHistory.map(m => m.role[0]).join(',')}], lastUser="${lastUserMessage.slice(0, 60)}"`);
+
   try {
     // 1. Backbone: get person context
     const personContext = await getPersonContext(user.id, lastUserMessage, sessionHistory);
