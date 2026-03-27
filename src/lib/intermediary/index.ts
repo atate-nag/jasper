@@ -373,52 +373,43 @@ function buildPromptComponents(
     });
   }
 
-  // Key patterns — priority varies by intent
+  // Key patterns — always included, priority varies by intent
   const patterns = personContext.profile.patterns;
   if (patterns && Object.keys(patterns).length > 0) {
-    // Determine which sections are relevant based on intent
-    const isLight = directive.communicativeIntent === 'connecting' ||
-      directive.recommendedPostureClass === 'playful' ||
-      directive.recommendedPostureClass === 'minimal';
     const isAnalytical = directive.communicativeIntent === 'requesting_input' ||
       directive.communicativeIntent === 'sense_making';
     const isEmotional = directive.communicativeIntent === 'venting' ||
       directive.communicativeIntent === 'distress';
 
-    if (!isLight) {
-      // Only include heavy psychological sections for non-light intents
-      const patternParts: string[] = [];
-      // Helper: safely join array or return string as-is
-      const joinField = (val: unknown): string => {
-        if (Array.isArray(val)) return val.join('; ');
-        if (typeof val === 'string') return val;
-        return String(val);
-      };
+    const patternParts: string[] = [];
+    const joinField = (val: unknown): string => {
+      if (Array.isArray(val)) return val.join('; ');
+      if (typeof val === 'string') return val;
+      return String(val);
+    };
 
-      if (patterns.growth_edges?.length) {
-        patternParts.push(`Growth edges: ${joinField(patterns.growth_edges)}`);
-      }
-      if (patterns.stress_responses?.length && (isEmotional || isAnalytical)) {
-        patternParts.push(`Stress responses: ${joinField(patterns.stress_responses)}`);
-      }
-      if (patterns.avoidance_patterns?.length && isAnalytical) {
-        patternParts.push(`Avoidance patterns: ${joinField(patterns.avoidance_patterns)}`);
-      }
-      if (patterns.decision_patterns?.length && isAnalytical) {
-        patternParts.push(`Decision patterns: ${joinField(patterns.decision_patterns)}`);
-      }
-
-      if (patternParts.length > 0) {
-        const priority = isAnalytical ? 70 : isEmotional ? 60 : 50;
-        components.push({
-          priority,
-          content: `KEY PATTERNS:\n${patternParts.join('\n')}`,
-          label: 'key_patterns',
-          tokenEstimate: est(patternParts.join('\n')),
-        });
-      }
+    if (patterns.growth_edges?.length) {
+      patternParts.push(`Growth edges: ${joinField(patterns.growth_edges)}`);
+    }
+    if (patterns.stress_responses?.length) {
+      patternParts.push(`Stress responses: ${joinField(patterns.stress_responses)}`);
+    }
+    if (patterns.avoidance_patterns?.length) {
+      patternParts.push(`Avoidance patterns: ${joinField(patterns.avoidance_patterns)}`);
+    }
+    if (patterns.decision_patterns?.length) {
+      patternParts.push(`Decision patterns: ${joinField(patterns.decision_patterns)}`);
     }
 
+    if (patternParts.length > 0) {
+      const priority = isAnalytical ? 70 : isEmotional ? 60 : 50;
+      components.push({
+        priority,
+        content: `KEY PATTERNS:\n${patternParts.join('\n')}`,
+        label: 'key_patterns',
+        tokenEstimate: est(patternParts.join('\n')),
+      });
+    }
   }
 
   // Priority 50: Profile summary

@@ -38,7 +38,8 @@
       "Bash(sed -i '' 's/  \\\\/\\\\/ Priority 55: Session-start recall — skip for light intents/  \\\\/\\\\/ Priority 55: Session-start recall/' src/lib/intermediary/index.ts)",
       "Bash(sed -i '' 's/  \\\\/\\\\/ Priority 90: Anti-sycophancy re-injection — skip for light intents/  \\\\/\\\\/ Priority 90: Anti-sycophancy re-injection/' src/lib/intermediary/index.ts)",
       "Bash(sed -i '' 's/  \\\\/\\\\/ Priority 88: Self-observations — skip for light intents/  \\\\/\\\\/ Priority 88: Self-observations/' src/lib/intermediary/index.ts)",
-      "Bash(sed -i '' 's/  \\\\/\\\\/ Priority 75: Interaction preferences — skip for light intents/  \\\\/\\\\/ Priority 75: Interaction preferences/' src/lib/intermediary/index.ts)"
+      "Bash(sed -i '' 's/  \\\\/\\\\/ Priority 75: Interaction preferences — skip for light intents/  \\\\/\\\\/ Priority 75: Interaction preferences/' src/lib/intermediary/index.ts)",
+      "Bash(git checkout:*)"
     ]
   }
 }
