@@ -21,7 +21,7 @@ export function getSupabaseAdmin(): SupabaseClient {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) {
-      // Fall back to anon key if no service role key
+      console.warn('[supabase] WARNING: No SUPABASE_SERVICE_ROLE_KEY — using anon key (RLS will block cross-user queries)');
       return getSupabase();
     }
     _serviceClient = createClient(url, key);

@@ -298,11 +298,16 @@ async function vectorSearch(
     .limit(100);
 
   if (fallbackError) {
-    console.warn('[recall] Fallback query failed:', fallbackError.message);
+    console.warn('[recall] Fallback query failed:', fallbackError.message, fallbackError.details || '', fallbackError.hint || '');
     return [];
   }
   if (!allSegments || allSegments.length === 0) {
-    console.log('[recall] Fallback found 0 segments');
+    console.log(`[recall] Fallback found 0 segments (queried ${userIds.length} user IDs, importance >= ${importanceFloor ?? 3})`);
+    // Debug: try without the .in filter to see if any segments exist at all
+    const { count } = await getSupabaseAdmin()
+      .from('conversation_segments')
+      .select('*', { count: 'exact', head: true });
+    console.log(`[recall] Total segments in table: ${count}`);
     return [];
   }
 
