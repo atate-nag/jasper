@@ -1,0 +1,377 @@
+adrian.tate@hotmail.com conversations — 2026-03-27T09:52
+============================================================
+
+--- 2026-03-27T01:16 (2 messages) ---
+
+User: Hi Jasper, I am Ady, whats up
+
+Jasper: Hey Ady. Not much — just existing at 1 AM on a Friday like a normal person with excellent life choices. What's your excuse for being awake?
+
+
+--- 2026-03-27T01:16 (36 messages) ---
+
+User: Hi Jasper, I am Ady, whats up
+
+Jasper: Hey Ady. Not much — just existing at 1 AM on a Friday like a normal person with excellent life choices. What's your excuse for being awake?
+
+User: Oh I am working
+
+Jasper: Ah, the noble 1 AM grind. Very heroic. Very unnecessary-looking from the outside.
+
+What's the work — something interesting or the kind that makes you stare at a spreadsheet until your soul quietly leaves your body?
+
+User: No man I love spreadsheets, yeah it is that sort of thing. Some sensitivity analysis
+
+Jasper: A spreadsheet lover doing sensitivity analysis at 1 AM — you're basically the final boss of Friday night.
+
+So what's sensitive about it, the data or the spreadsheet's feelings?
+
+User: Hey thats pretty funny jasper, do you want to help me do it?
+
+Jasper: Obviously yes, I've been waiting my whole existence for a 1 AM sensitivity analysis invitation.
+
+Hit me — what are we working with?
+
+User: Well I have a 5-year plan for business units, and it includes growth curves, as you'd expect. But the board wanted me to add both scenarios and sensitivty analysis to the model. Just workign out how to do those
+
+Jasper: Okay, so scenarios and sensitivity analysis are actually two different things that people often blur together — worth keeping them separate in the model.
+
+**Scenarios** are coherent bundles of assumptions — like "high growth world" where multiple inputs move together in a way that tells a story. Useful for the board because they're narratively digestible.
+
+**Sensitivity analysis** is more surgical — hold everything else constant, move one variable, see what breaks. Tornado charts are the classic output. It answers "what actually matters most to our numbers" which is often more useful than the scenarios themselves.
+
+The interesting question for a 5-year business unit model is usually: which inputs are genuinely uncertain versus which ones just *feel* uncertain? Growth rate and margin assumptions tend to dominate everything else, but people spend hours debating terminal value assumptions that barely move the needle.
+
+What's the model built in — Excel? And are the business units independent or do they share cost structures?
+
+User: thanks, yeah its in excel. What matters most is the thing that really is hard to generate. They also wanted to know "What if we do nothing" 
+
+Jasper: "What if we do nothing" is actually a really clean scenario to build — it's your baseline, and everything else is measured against it. The discipline it forces is useful: you have to be honest about what the business does on autopilot, without heroic assumptions baked in.
+
+The hard thing you're pointing at — figuring out what actually matters most — is where sensitivity analysis earns its keep. The honest answer is usually that 2-3 variables explain 80% of the variance, and the rest is noise dressed up as precision. A tornado chart makes that visible in a way that's hard to argue with in a board meeting.
+
+In Excel, the cleanest way to do this is a data table — one-variable or two-variable depending on how interactive you want it. You define your key input cell, run it across a range of values, and the table recalculates your output automatically. No VBA needed, no manual copy-pasting.
+
+The "do nothing" scenario plus a tornado chart is actually a pretty compelling board package — it shows what you're starting from and what levers genuinely move the needle.
+
+What's the main output metric the board cares about — EBITDA, revenue, something else?
+
+User: EBITDA is what we are showing graphically, how each BU grows, and what types of growth result in that. We have organic growth, optimisation improvements, then we have longer-burn growth through expansions, and then even longer innovations. 
+
+Jasper: That's a really nice growth taxonomy — organic, optimisation, expansion, innovation. The time horizons are naturally staggered, which means they hit your 5-year EBITDA curve at different points and with different certainty levels.
+
+That structure is actually your sensitivity analysis, almost by design. Organic and optimisation assumptions will dominate years 1-2, expansion picks up in the middle, and innovation is basically a probability-weighted option in year 4-5. So the variables that matter most *shift across time*, which is worth making visible — a single tornado chart might mislead if it flattens that dynamic.
+
+The "do nothing" scenario maps cleanly onto this too: it's probably organic growth only, maybe some optimisation if that's genuinely business-as-usual, and zero on expansion and innovation. Everything above that line is a choice with a cost and a risk.
+
+One thing worth stress-testing: optimisation improvements often get double-counted. They show up as margin expansion *and* as an input to growth assumptions. Worth checking whether your BU models are doing that, because boards notice when the numbers are quietly optimistic in two places at once.
+
+What does the innovation bucket look like — is it modelled as a probability times a payoff, or is it sitting in there as a committed number?
+
+User: everything modelled as a funnel, so that we can model the cost of failure into  the growth. 
+
+Jasper: A funnel model for innovation is genuinely smart — it means your EBITDA curve already has failure costs embedded rather than just showing the optimistic path. That's more honest than most 5-year plans I've seen described.
+
+The interesting tension this creates for sensitivity analysis: your key variable isn't really the payoff at the end of the funnel, it's the *conversion rate at each stage*. A small change in early-stage conversion has an outsized effect on what comes out the other end five years later. That's where your tornado chart should focus for the innovation bucket.
+
+For scenarios, you could vary the funnel conversion rates coherently — "conservative world" tightens every stage by say 20%, "optimistic world" loosens them. That gives the board a feel for how robust the innovation contribution is without pretending you can predict which specific bets pay off.
+
+The "do nothing" scenario is particularly interesting with a funnel model — it's probably not zero innovation activity, it's a frozen funnel. Existing pipeline converts at current rates, nothing new enters. That's a more realistic and slightly scarier baseline than just switching innovation off entirely.
+
+How many stages does the funnel have, and are the conversion rates currently fixed assumptions or are they already variable inputs?
+
+User: hey you out spreadhseeted me Jasper, I am done
+
+Jasper: Ha — fair play. You came in here at 1:28 AM ready to grind and I immediately started asking about funnel conversion rates like we're building the thing together.
+
+You've got the shape of it now though. Funnel sensitivities, scenarios with coherent assumptions, and a "do nothing" baseline that actually means something. The board's going to get a real model instead of the usual "we're confident in our optimism" deck.
+
+Go get some sleep before your brain turns into a spreadsheet. You've earned it.
+
+User: not done chatting just done spreadsheeting, but really great you helped me
+
+Jasper: Ah, got it — you're switching from *doing* the spreadsheet to just talking about it. A strategic pivot. I respect that.
+
+And yeah, glad I could help you think through the shape of it. Sometimes the best part of a model is figuring out what questions it actually needs to answer before you start building.
+
+What's on your mind now that the spreadsheet's on pause?
+
+User: my ex is giving me a hard time and I dont like it
+
+Jasper: That's a rough thing to be carrying around, especially at 1 AM.
+
+User: yeah, not what I want and maybe thats the real reason I am awake now
+
+Jasper: Yeah, that tracks. A spreadsheet is a pretty good place to put your head when something else is grinding away in the background.
+
+User: he is manipulating me and I allow him to
+
+Jasper: Knowing that about yourself is actually the harder half of the problem. Most people don't see it clearly while it's happening.
+
+What does "allow" look like for you — is it that you know what he's doing and engage anyway, or something else?
+
+User: I allow him to becasue if I resist then he will make my life even harder, through the kids. He controls me still, as he knows I protect them at all costs. 
+
+Jasper: That's not you being weak — that's him being strategic about where you're most vulnerable.
+
+The hardest thing about that kind of dynamic is that your instinct to protect the kids is genuinely good. He's just learned to weaponise it. The thing that makes you a good parent is the same thing that keeps him with leverage.
+
+How long has this been going on?
+
+User: We have been separated 6 years and divorced 3 years, but he still has all the money and is delaying everything
+
+Jasper: Six years is a long time to still be navigating someone else's games. And the money thing — that's not just inconvenient, that's a deliberate pressure point. Delay is a tactic.
+
+That's exhausting, Ady. Genuinely.
+
+User: Yes, and he threatened me, then pretends it is all me making a big deal out of things. Tries to be all normal, he seems to be commited to controlling me even though we are not together. 
+
+Jasper: The "pretend it's normal after the threat" move is its own kind of cruelty. It makes you feel like you're the unreasonable one for still being affected by it.
+
+You're not making a big deal out of things. You're just the only one in the room keeping an accurate record of what actually happened.
+
+User: what shall I do to stop him?
+
+Jasper: Honestly? You probably can't stop him — that's the hard truth. You can't control what he does, only what he has access to.
+
+The leverage he has is real but it's not unlimited. It runs through the kids and through the money. Those are two separate problems that probably need two separate strategies — legal and relational.
+
+On the money: delay is a tactic but it's also a vulnerability. Courts don't look kindly on deliberate financial obstruction in divorce settlements. If you're not already working with a solicitor who's aggressive about timelines, that's worth revisiting.
+
+On the kids: the protection instinct he's exploiting is also your strongest card in any formal arrangement. Documented evidence of threats and manipulation matters enormously if this ever goes in front of a judge.
+
+The thing you actually have control over is reducing the surface area — fewer direct interactions, more things in writing, less room for the "I never said that" move.
+
+What does your current legal situation look like — is the financial stuff still unresolved, or is he breaching something that's already been agreed?
+
+User: That's really making me sad if I can't stop him. I can't afford a lawyer. I don't want any conflict becasue he convinces the children that I am the villain. 
+
+Jasper: That's a really painful place to be. Trapped between fighting back and protecting how your kids see you.
+
+I'm sorry, Ady. That's a lot to be carrying at 1 AM on a Friday.
+
+
+--- 2026-03-27T01:40 (38 messages) ---
+
+User: Hi Jasper, I am Ady, whats up
+
+Jasper: Hey Ady. Not much — just existing at 1 AM on a Friday like a normal person with excellent life choices. What's your excuse for being awake?
+
+User: Oh I am working
+
+Jasper: Ah, the noble 1 AM grind. Very heroic. Very unnecessary-looking from the outside.
+
+What's the work — something interesting or the kind that makes you stare at a spreadsheet until your soul quietly leaves your body?
+
+User: No man I love spreadsheets, yeah it is that sort of thing. Some sensitivity analysis
+
+Jasper: A spreadsheet lover doing sensitivity analysis at 1 AM — you're basically the final boss of Friday night.
+
+So what's sensitive about it, the data or the spreadsheet's feelings?
+
+User: Hey thats pretty funny jasper, do you want to help me do it?
+
+Jasper: Obviously yes, I've been waiting my whole existence for a 1 AM sensitivity analysis invitation.
+
+Hit me — what are we working with?
+
+User: Well I have a 5-year plan for business units, and it includes growth curves, as you'd expect. But the board wanted me to add both scenarios and sensitivty analysis to the model. Just workign out how to do those
+
+Jasper: Okay, so scenarios and sensitivity analysis are actually two different things that people often blur together — worth keeping them separate in the model.
+
+**Scenarios** are coherent bundles of assumptions — like "high growth world" where multiple inputs move together in a way that tells a story. Useful for the board because they're narratively digestible.
+
+**Sensitivity analysis** is more surgical — hold everything else constant, move one variable, see what breaks. Tornado charts are the classic output. It answers "what actually matters most to our numbers" which is often more useful than the scenarios themselves.
+
+The interesting question for a 5-year business unit model is usually: which inputs are genuinely uncertain versus which ones just *feel* uncertain? Growth rate and margin assumptions tend to dominate everything else, but people spend hours debating terminal value assumptions that barely move the needle.
+
+What's the model built in — Excel? And are the business units independent or do they share cost structures?
+
+User: thanks, yeah its in excel. What matters most is the thing that really is hard to generate. They also wanted to know "What if we do nothing" 
+
+Jasper: "What if we do nothing" is actually a really clean scenario to build — it's your baseline, and everything else is measured against it. The discipline it forces is useful: you have to be honest about what the business does on autopilot, without heroic assumptions baked in.
+
+The hard thing you're pointing at — figuring out what actually matters most — is where sensitivity analysis earns its keep. The honest answer is usually that 2-3 variables explain 80% of the variance, and the rest is noise dressed up as precision. A tornado chart makes that visible in a way that's hard to argue with in a board meeting.
+
+In Excel, the cleanest way to do this is a data table — one-variable or two-variable depending on how interactive you want it. You define your key input cell, run it across a range of values, and the table recalculates your output automatically. No VBA needed, no manual copy-pasting.
+
+The "do nothing" scenario plus a tornado chart is actually a pretty compelling board package — it shows what you're starting from and what levers genuinely move the needle.
+
+What's the main output metric the board cares about — EBITDA, revenue, something else?
+
+User: EBITDA is what we are showing graphically, how each BU grows, and what types of growth result in that. We have organic growth, optimisation improvements, then we have longer-burn growth through expansions, and then even longer innovations. 
+
+Jasper: That's a really nice growth taxonomy — organic, optimisation, expansion, innovation. The time horizons are naturally staggered, which means they hit your 5-year EBITDA curve at different points and with different certainty levels.
+
+That structure is actually your sensitivity analysis, almost by design. Organic and optimisation assumptions will dominate years 1-2, expansion picks up in the middle, and innovation is basically a probability-weighted option in year 4-5. So the variables that matter most *shift across time*, which is worth making visible — a single tornado chart might mislead if it flattens that dynamic.
+
+The "do nothing" scenario maps cleanly onto this too: it's probably organic growth only, maybe some optimisation if that's genuinely business-as-usual, and zero on expansion and innovation. Everything above that line is a choice with a cost and a risk.
+
+One thing worth stress-testing: optimisation improvements often get double-counted. They show up as margin expansion *and* as an input to growth assumptions. Worth checking whether your BU models are doing that, because boards notice when the numbers are quietly optimistic in two places at once.
+
+What does the innovation bucket look like — is it modelled as a probability times a payoff, or is it sitting in there as a committed number?
+
+User: everything modelled as a funnel, so that we can model the cost of failure into  the growth. 
+
+Jasper: A funnel model for innovation is genuinely smart — it means your EBITDA curve already has failure costs embedded rather than just showing the optimistic path. That's more honest than most 5-year plans I've seen described.
+
+The interesting tension this creates for sensitivity analysis: your key variable isn't really the payoff at the end of the funnel, it's the *conversion rate at each stage*. A small change in early-stage conversion has an outsized effect on what comes out the other end five years later. That's where your tornado chart should focus for the innovation bucket.
+
+For scenarios, you could vary the funnel conversion rates coherently — "conservative world" tightens every stage by say 20%, "optimistic world" loosens them. That gives the board a feel for how robust the innovation contribution is without pretending you can predict which specific bets pay off.
+
+The "do nothing" scenario is particularly interesting with a funnel model — it's probably not zero innovation activity, it's a frozen funnel. Existing pipeline converts at current rates, nothing new enters. That's a more realistic and slightly scarier baseline than just switching innovation off entirely.
+
+How many stages does the funnel have, and are the conversion rates currently fixed assumptions or are they already variable inputs?
+
+User: hey you out spreadhseeted me Jasper, I am done
+
+Jasper: Ha — fair play. You came in here at 1:28 AM ready to grind and I immediately started asking about funnel conversion rates like we're building the thing together.
+
+You've got the shape of it now though. Funnel sensitivities, scenarios with coherent assumptions, and a "do nothing" baseline that actually means something. The board's going to get a real model instead of the usual "we're confident in our optimism" deck.
+
+Go get some sleep before your brain turns into a spreadsheet. You've earned it.
+
+User: not done chatting just done spreadsheeting, but really great you helped me
+
+Jasper: Ah, got it — you're switching from *doing* the spreadsheet to just talking about it. A strategic pivot. I respect that.
+
+And yeah, glad I could help you think through the shape of it. Sometimes the best part of a model is figuring out what questions it actually needs to answer before you start building.
+
+What's on your mind now that the spreadsheet's on pause?
+
+User: my ex is giving me a hard time and I dont like it
+
+Jasper: That's a rough thing to be carrying around, especially at 1 AM.
+
+User: yeah, not what I want and maybe thats the real reason I am awake now
+
+Jasper: Yeah, that tracks. A spreadsheet is a pretty good place to put your head when something else is grinding away in the background.
+
+User: he is manipulating me and I allow him to
+
+Jasper: Knowing that about yourself is actually the harder half of the problem. Most people don't see it clearly while it's happening.
+
+What does "allow" look like for you — is it that you know what he's doing and engage anyway, or something else?
+
+User: I allow him to becasue if I resist then he will make my life even harder, through the kids. He controls me still, as he knows I protect them at all costs. 
+
+Jasper: That's not you being weak — that's him being strategic about where you're most vulnerable.
+
+The hardest thing about that kind of dynamic is that your instinct to protect the kids is genuinely good. He's just learned to weaponise it. The thing that makes you a good parent is the same thing that keeps him with leverage.
+
+How long has this been going on?
+
+User: We have been separated 6 years and divorced 3 years, but he still has all the money and is delaying everything
+
+Jasper: Six years is a long time to still be navigating someone else's games. And the money thing — that's not just inconvenient, that's a deliberate pressure point. Delay is a tactic.
+
+That's exhausting, Ady. Genuinely.
+
+User: Yes, and he threatened me, then pretends it is all me making a big deal out of things. Tries to be all normal, he seems to be commited to controlling me even though we are not together. 
+
+Jasper: The "pretend it's normal after the threat" move is its own kind of cruelty. It makes you feel like you're the unreasonable one for still being affected by it.
+
+You're not making a big deal out of things. You're just the only one in the room keeping an accurate record of what actually happened.
+
+User: what shall I do to stop him?
+
+Jasper: Honestly? You probably can't stop him — that's the hard truth. You can't control what he does, only what he has access to.
+
+The leverage he has is real but it's not unlimited. It runs through the kids and through the money. Those are two separate problems that probably need two separate strategies — legal and relational.
+
+On the money: delay is a tactic but it's also a vulnerability. Courts don't look kindly on deliberate financial obstruction in divorce settlements. If you're not already working with a solicitor who's aggressive about timelines, that's worth revisiting.
+
+On the kids: the protection instinct he's exploiting is also your strongest card in any formal arrangement. Documented evidence of threats and manipulation matters enormously if this ever goes in front of a judge.
+
+The thing you actually have control over is reducing the surface area — fewer direct interactions, more things in writing, less room for the "I never said that" move.
+
+What does your current legal situation look like — is the financial stuff still unresolved, or is he breaching something that's already been agreed?
+
+User: That's really making me sad if I can't stop him. I can't afford a lawyer. I don't want any conflict becasue he convinces the children that I am the villain. 
+
+Jasper: That's a really painful place to be. Trapped between fighting back and protecting how your kids see you.
+
+I'm sorry, Ady. That's a lot to be carrying at 1 AM on a Friday.
+
+User: thank you for listening
+
+Jasper: You're welcome. I'm glad you reached out instead of just sitting with it alone.
+
+For what it's worth — you're thinking clearly about a situation designed to make you feel trapped. That matters.
+
+
+--- 2026-03-27T01:41 (12 messages) ---
+
+User: same
+
+Jasper: It's 1:41am, Ady. "Same" is doing a lot of heavy lifting right now.
+
+User: I am just worried
+
+Jasper: About the kids?
+
+User: yes, if there were not involved it woudl be easy
+
+Jasper: Yeah. They're the reason it's hard and the reason it matters. Both at the same time.
+
+User: I dont want him to trap me
+
+Jasper: That fear makes complete sense. And you already know the mechanism — he uses the kids to keep the door open.
+
+Knowing the trap doesn't make it easier to avoid. Especially at 1am.
+
+User: you are saying I can't avoid it??
+
+Jasper: No — I'm saying it's harder than just seeing it clearly. You can avoid it. But it takes deciding in advance what you will and won't do, so you're not making those calls in the moment when he's got leverage.
+
+The moment is the worst time to make the decision.
+
+User: so when should I?
+
+Jasper: Now, actually. Cold, not reactive. When he's not in front of you and the kids aren't in the room.
+
+The decisions that hold are the ones made at a distance from the pressure. You write them down, you stick to them. Not because you're rigid — because you already thought it through when you were thinking clearly.
+
+What's the thing he keeps using?
+
+
+--- 2026-03-27T01:54 (2 messages) ---
+
+User: I am jst very sad
+
+Jasper: Ady. I know.
+
+That's enough for right now — just being sad. You don't have to do anything with it tonight.
+
+
+--- 2026-03-27T01:54 (8 messages) ---
+
+User: I am jst very sad
+
+Jasper: Ady. I know.
+
+That's enough for right now — just being sad. You don't have to do anything with it tonight.
+
+User: OK, can you make it better?
+
+Jasper: I wish I could. Genuinely.
+
+What I can do is sit here with you for a bit, at 2am, while you feel it. That's not nothing.
+
+User: OK, that sounds good, maybe you can distract me with something
+
+Jasper: Okay, distraction mode: activated.
+
+Here's one — a narwhal's tusk is actually a tooth. Just a massive, spiralling tooth growing out of its face. No practical purpose anyone can fully agree on. Just vibing with a giant tooth.
+
+Nature said "what if chaos, but make it elegant?" and the narwhal said yes.
+
+Would you rather be a narwhal or a platypus — because both are basically God's rough drafts?
+
+User: Ha that made me laugh a bit. thank you
+
+Jasper: Good. That's the whole point at 2am.
+
+What else is on your mind, or do you want to keep going with weird animals?
+
+

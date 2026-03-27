@@ -80,19 +80,19 @@ const FALLBACK_ROUTING: ModelRouting = {
   ...DEFAULT_ROUTING,
   standard: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-5',
     maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   deep: {
     provider: 'anthropic',
-    model: 'claude-opus-4-5-20250115',
+    model: 'claude-opus-4-5',
     maxTokens: 2000,
     defaultTemperature: 0.7,
   },
   depthScoring: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-sonnet-4-5',
     maxTokens: 200,
     defaultTemperature: 0.3,
   },
