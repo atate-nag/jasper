@@ -75,9 +75,33 @@ const MIXED_ROUTING: ModelRouting = {
   },
 };
 
+// Fallback: use 4.5 models when 4.6 is overloaded
+const FALLBACK_ROUTING: ModelRouting = {
+  ...DEFAULT_ROUTING,
+  standard: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5-20241022',
+    maxTokens: 2000,
+    defaultTemperature: 0.7,
+  },
+  deep: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5-20241022',
+    maxTokens: 2000,
+    defaultTemperature: 0.7,
+  },
+  depthScoring: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5-20241022',
+    maxTokens: 200,
+    defaultTemperature: 0.3,
+  },
+};
+
 const ROUTING_MAP: Record<string, ModelRouting> = {
   default: DEFAULT_ROUTING,
   mixed: MIXED_ROUTING,
+  fallback: FALLBACK_ROUTING,
 };
 
 let _activeRouting: ModelRouting | null = null;
