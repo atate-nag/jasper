@@ -29,7 +29,7 @@ const DEFAULT_ROUTING: ModelRouting = {
   },
   deep: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     maxTokens: 2000,
     defaultTemperature: 0.7,
   },
@@ -63,7 +63,7 @@ const MIXED_ROUTING: ModelRouting = {
   },
   deep: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     maxTokens: 2000,
     defaultTemperature: 0.7,
   },
@@ -86,7 +86,7 @@ const FALLBACK_ROUTING: ModelRouting = {
   },
   deep: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20241022',
+    model: 'claude-opus-4-5-20250115',
     maxTokens: 2000,
     defaultTemperature: 0.7,
   },
