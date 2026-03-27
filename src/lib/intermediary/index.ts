@@ -339,8 +339,7 @@ function buildPromptComponents(
       return `[${timeAgo}, ${s.segmentType}]\n${s.segmentText}`;
     });
 
-    const name = personContext.profile.identity?.name || 'this person';
-    const recallText = `YOUR MEMORIES OF PREVIOUS CONVERSATIONS WITH ${name.toUpperCase()}:\nThese are things you actually discussed with ${name} in earlier sessions. When asked what you remember, reference these directly — they are real.\n\n${recallLines.join('\n\n')}`;
+    const recallText = `RECALLED FROM PAST CONVERSATIONS:\n${recallLines.join('\n\n')}`;
     const isDeepRecall = directive.recallTier === 'deep';
 
     components.push({
