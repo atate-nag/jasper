@@ -254,7 +254,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
 
       <div className="flex flex-1 overflow-hidden">
         {/* Messages */}
-        <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 ${observeMode ? 'w-2/3' : 'w-full'}`}>
+        <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 flex flex-col ${observeMode ? 'w-2/3' : 'w-full'}`} style={{ flexDirection: 'column' }}>
           {messages.length === 0 && voiceMessages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600 text-lg">Say something.</p>
