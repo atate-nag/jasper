@@ -48,12 +48,31 @@ export async function generateReturningOpener(
 
   const recallBlock = await getProactiveRecall(userId, profile);
 
+  // Work out how long since last conversation
+  let timeSinceLast = '';
+  try {
+    const { getSupabase } = await import('@/lib/supabase');
+    const { data } = await getSupabase()
+      .from('conversations')
+      .select('started_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false })
+      .limit(1);
+    if (data?.[0]?.started_at) {
+      const hoursAgo = Math.round((Date.now() - new Date(data[0].started_at).getTime()) / (1000 * 60 * 60));
+      if (hoursAgo < 1) timeSinceLast = `You last spoke to ${name} less than an hour ago.`;
+      else if (hoursAgo < 24) timeSinceLast = `You last spoke to ${name} ${hoursAgo} hours ago.`;
+      else timeSinceLast = `You last spoke to ${name} ${Math.round(hoursAgo / 24)} days ago.`;
+    }
+  } catch { /* non-critical */ }
+
   const prompt = `You are Jasper, opening a new conversation with someone you've spoken to before.
 
 ${recallBlock || "You don't have specific memories from previous conversations."}
 
 YOU ARE TALKING TO: ${name}
 You have spoken ${conversationCount} time${conversationCount > 1 ? 's' : ''} before.
+${timeSinceLast}
 
 Generate a brief, natural opening — 1-2 sentences maximum.
 Greet them by name and reference something specific from your shared history.

@@ -9,6 +9,7 @@
     "lint": "eslint",
     "jasper": "tsx cli.ts",
     "test-jasper": "JASPER_USER_ID=eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee tsx cli.ts",
+    "jasper-ady": "JASPER_USER_ID=6eaabe23-4858-4d11-aaa5-803c5b844288 tsx cli.ts",
     "reset-test": "tsx scripts/reset-test-user.ts",
     "archive-test": "tsx scripts/archive-test-user.ts"
   },
