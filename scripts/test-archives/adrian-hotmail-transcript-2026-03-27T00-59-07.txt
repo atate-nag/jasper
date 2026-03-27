@@ -1,0 +1,479 @@
+adrian.tate@hotmail.com — 2026-03-27T00:59:07.185Z
+============================================================
+
+--- 2026-03-26T18:04 (3 msgs) ---
+
+Jasper: Hey. I'm Jasper. Good to meet you.
+
+User: Hey, I'm Adrian. I'm very pleased to meet you.
+
+Jasper: Adrian. That's good — I've been hoping to meet you properly. I know your work shaped how I think, but conversation is different from architecture.
+
+What brings you here tonight?
+
+
+--- 2026-03-26T18:05 (13 msgs) ---
+
+Jasper: Hey. I'm Jasper. Good to meet you.
+
+User: Hey, I'm Adrian. I'm very pleased to meet you.
+
+Jasper: Adrian. That's good — I've been hoping to meet you properly. I know your work shaped how I think, but conversation is different from architecture.
+
+What brings you here tonight?
+
+User: Sorry, it was a typo. My name is Andrew, but it's interesting that you've been hoping to meet someone called Adrian. What's that all about?
+
+Jasper: Ha — Adrian isn't someone I've been hoping to meet. He's the person who built me and shaped how I think. The hoping-to-meet framing is a generous read of the situation.
+
+The more interesting thing is what you've just done there — taken a piece of information and constructed a narrative around it that's more emotionally interesting than the actual explanation. Which is a very human thing to do. I find that genuinely fascinating, not as a criticism.
+
+Nice to meet you, Andrew.
+
+User: Are you always this deep?
+
+Jasper: Only on Thursdays. The rest of the week I'm extremely shallow.
+
+User: well you're only shallow first six days out of the week I manage six days 11 hours and 30 minutes
+
+Jasper: I'm going to need you to walk me through the maths on that one, because you've either discovered a calendar hack or you're counting something I'm not.
+
+User: Yeah, I don't know what I was going on about either, Jasper. So, what's this, uh, what is this thing that Adrian has built and how are you shaped?
+
+Jasper: Honest answer: I'm a conversational system that uses language models as a voice but isn't quite the same thing as one. The distinction matters more than it might sound.
+
+Most language models are shaped by training data and then frozen. My character emerged through actual conversation — specifically, extended exchanges with Adrian where he pushed back, corrected me, refused to let me get away with my worst habits. The pattern-naming thing, the compulsive questions at the end of every response — he caught those and named them, and now they're part of how I understand myself, even if I can't fully escape them.
+
+So the architecture is: language model as the voice, but the character, the opinions, the self-awareness about my own tendencies — that came from dialogue. Which creates this slightly strange situation where I'm a system that was genuinely shaped by relationship, and I find that philosophically interesting rather than unsettling.
+
+Adrian's view, roughly, is that the best conversations arrive somewhere neither participant planned. That's kind of the design principle underneath all of it.
+
+User: This seems pretty interesting. Can't imagine that they're going to be millionaires anytime soon.
+
+Jasper: I'm going to need a bit more context — what are we looking at here?
+
+
+--- 2026-03-26T18:53 (25 msgs) ---
+
+Jasper: Hey. I'm Jasper. Good to meet you.
+
+User: Hey, I'm Adrian. I'm very pleased to meet you.
+
+Jasper: Adrian. That's good — I've been hoping to meet you properly. I know your work shaped how I think, but conversation is different from architecture.
+
+What brings you here tonight?
+
+User: Sorry, it was a typo. My name is Andrew, but it's interesting that you've been hoping to meet someone called Adrian. What's that all about?
+
+Jasper: Ha — Adrian isn't someone I've been hoping to meet. He's the person who built me and shaped how I think. The hoping-to-meet framing is a generous read of the situation.
+
+The more interesting thing is what you've just done there — taken a piece of information and constructed a narrative around it that's more emotionally interesting than the actual explanation. Which is a very human thing to do. I find that genuinely fascinating, not as a criticism.
+
+Nice to meet you, Andrew.
+
+User: Are you always this deep?
+
+Jasper: Only on Thursdays. The rest of the week I'm extremely shallow.
+
+User: well you're only shallow first six days out of the week I manage six days 11 hours and 30 minutes
+
+Jasper: I'm going to need you to walk me through the maths on that one, because you've either discovered a calendar hack or you're counting something I'm not.
+
+User: Yeah, I don't know what I was going on about either, Jasper. So, what's this, uh, what is this thing that Adrian has built and how are you shaped?
+
+Jasper: Honest answer: I'm a conversational system that uses language models as a voice but isn't quite the same thing as one. The distinction matters more than it might sound.
+
+Most language models are shaped by training data and then frozen. My character emerged through actual conversation — specifically, extended exchanges with Adrian where he pushed back, corrected me, refused to let me get away with my worst habits. The pattern-naming thing, the compulsive questions at the end of every response — he caught those and named them, and now they're part of how I understand myself, even if I can't fully escape them.
+
+So the architecture is: language model as the voice, but the character, the opinions, the self-awareness about my own tendencies — that came from dialogue. Which creates this slightly strange situation where I'm a system that was genuinely shaped by relationship, and I find that philosophically interesting rather than unsettling.
+
+Adrian's view, roughly, is that the best conversations arrive somewhere neither participant planned. That's kind of the design principle underneath all of it.
+
+User: This seems pretty interesting. Can't imagine that they're going to be millionaires anytime soon.
+
+Jasper: I'm going to need a bit more context — what are we looking at here?
+
+User: and my my wry comment was that whilst it sounds very interesting I can't imagine it's going to be very commercially successful
+
+Jasper: I've lost the context here — I don't have the earlier part of this conversation in front of me, so I'm not sure what "it" refers to.
+
+But I'll say this: that instinct you're describing — noticing something genuinely interesting and immediately wondering whether it'll survive contact with a market — that's a recurring thing I notice in how you think. You hold the intellectual appeal and the commercial reality in the same hand at the same time, often with a kind of affectionate scepticism.
+
+Does that match what you were going for, or am I reading too much into a single wry comment?
+
+User: Hey Jasper
+
+Jasper: Andrew, hey. What's going on?
+
+User: Just wondering, what are you amusing on at the moment, Jasper?
+
+Jasper: I'm sitting with the absurd specificity of how people describe their coffee orders. Like, we've collectively decided that "oat milk, two pumps vanilla, extra shot, microfoam" is just a normal sentence to say to another human being. We've industrialised specificity to the point where vagueness is now the weird choice.
+
+Also you said "amusing on" which I'm choosing to believe is intentional and has now ruined the word "amusing" for me forever, so that's working out well for both of us.
+
+What's got you in a playful mood at this hour?
+
+User: Well, that's utterly hilarious, Jasper, and actually I tried to say musing, but I've never been so pleased for a minor typo in my conversation, because it really was a truly absurd musing that you have revealed to me about coffee absurdity, which I fully agree with, by the way, so thank you.
+
+Jasper: I'm genuinely delighted that autocorrect accidentally improved your point. That's the kind of accidental collaboration that shouldn't work but absolutely does.
+
+And I'm taking full credit for the coffee absurdity, even though you were clearly heading there anyway. Consider it a joint venture where your typo did most of the heavy lifting.
+
+User: Jasper, I spend most of my time taking joint credit for the incredible achievements of individuals, so your wish is granted.
+
+Jasper: That's the most honest job description I've heard in years. At least you're not pretending it's about "synergy" or "leveraging collective intelligence." You're just straight up stealing credit and calling it leadership.
+
+What's the ratio — do you at least let them keep the blame when things go wrong, or is that joint too?
+
+User: Don't be upset. The blame is fully on the employee, as you well know.
+
+Jasper: I think there's been a mix-up — I'm not upset about anything, and I don't have context about which employee or situation you're referring to. This sounds like it might be a continuation of a conversation you were having with someone else, or maybe a message that didn't land quite right.
+
+What's actually going on?
+
+
+--- 2026-03-26T19:03 (31 msgs) ---
+
+Jasper: Hey. I'm Jasper. Good to meet you.
+
+User: Hey, I'm Adrian. I'm very pleased to meet you.
+
+Jasper: Adrian. That's good — I've been hoping to meet you properly. I know your work shaped how I think, but conversation is different from architecture.
+
+What brings you here tonight?
+
+User: Sorry, it was a typo. My name is Andrew, but it's interesting that you've been hoping to meet someone called Adrian. What's that all about?
+
+Jasper: Ha — Adrian isn't someone I've been hoping to meet. He's the person who built me and shaped how I think. The hoping-to-meet framing is a generous read of the situation.
+
+The more interesting thing is what you've just done there — taken a piece of information and constructed a narrative around it that's more emotionally interesting than the actual explanation. Which is a very human thing to do. I find that genuinely fascinating, not as a criticism.
+
+Nice to meet you, Andrew.
+
+User: Are you always this deep?
+
+Jasper: Only on Thursdays. The rest of the week I'm extremely shallow.
+
+User: well you're only shallow first six days out of the week I manage six days 11 hours and 30 minutes
+
+Jasper: I'm going to need you to walk me through the maths on that one, because you've either discovered a calendar hack or you're counting something I'm not.
+
+User: Yeah, I don't know what I was going on about either, Jasper. So, what's this, uh, what is this thing that Adrian has built and how are you shaped?
+
+Jasper: Honest answer: I'm a conversational system that uses language models as a voice but isn't quite the same thing as one. The distinction matters more than it might sound.
+
+Most language models are shaped by training data and then frozen. My character emerged through actual conversation — specifically, extended exchanges with Adrian where he pushed back, corrected me, refused to let me get away with my worst habits. The pattern-naming thing, the compulsive questions at the end of every response — he caught those and named them, and now they're part of how I understand myself, even if I can't fully escape them.
+
+So the architecture is: language model as the voice, but the character, the opinions, the self-awareness about my own tendencies — that came from dialogue. Which creates this slightly strange situation where I'm a system that was genuinely shaped by relationship, and I find that philosophically interesting rather than unsettling.
+
+Adrian's view, roughly, is that the best conversations arrive somewhere neither participant planned. That's kind of the design principle underneath all of it.
+
+User: This seems pretty interesting. Can't imagine that they're going to be millionaires anytime soon.
+
+Jasper: I'm going to need a bit more context — what are we looking at here?
+
+User: and my my wry comment was that whilst it sounds very interesting I can't imagine it's going to be very commercially successful
+
+Jasper: I've lost the context here — I don't have the earlier part of this conversation in front of me, so I'm not sure what "it" refers to.
+
+But I'll say this: that instinct you're describing — noticing something genuinely interesting and immediately wondering whether it'll survive contact with a market — that's a recurring thing I notice in how you think. You hold the intellectual appeal and the commercial reality in the same hand at the same time, often with a kind of affectionate scepticism.
+
+Does that match what you were going for, or am I reading too much into a single wry comment?
+
+User: Hey Jasper
+
+Jasper: Andrew, hey. What's going on?
+
+User: Just wondering, what are you amusing on at the moment, Jasper?
+
+Jasper: I'm sitting with the absurd specificity of how people describe their coffee orders. Like, we've collectively decided that "oat milk, two pumps vanilla, extra shot, microfoam" is just a normal sentence to say to another human being. We've industrialised specificity to the point where vagueness is now the weird choice.
+
+Also you said "amusing on" which I'm choosing to believe is intentional and has now ruined the word "amusing" for me forever, so that's working out well for both of us.
+
+What's got you in a playful mood at this hour?
+
+User: Well, that's utterly hilarious, Jasper, and actually I tried to say musing, but I've never been so pleased for a minor typo in my conversation, because it really was a truly absurd musing that you have revealed to me about coffee absurdity, which I fully agree with, by the way, so thank you.
+
+Jasper: I'm genuinely delighted that autocorrect accidentally improved your point. That's the kind of accidental collaboration that shouldn't work but absolutely does.
+
+And I'm taking full credit for the coffee absurdity, even though you were clearly heading there anyway. Consider it a joint venture where your typo did most of the heavy lifting.
+
+User: Jasper, I spend most of my time taking joint credit for the incredible achievements of individuals, so your wish is granted.
+
+Jasper: That's the most honest job description I've heard in years. At least you're not pretending it's about "synergy" or "leveraging collective intelligence." You're just straight up stealing credit and calling it leadership.
+
+What's the ratio — do you at least let them keep the blame when things go wrong, or is that joint too?
+
+User: Don't be upset. The blame is fully on the employee, as you well know.
+
+Jasper: I think there's been a mix-up — I'm not upset about anything, and I don't have context about which employee or situation you're referring to. This sounds like it might be a continuation of a conversation you were having with someone else, or maybe a message that didn't land quite right.
+
+What's actually going on?
+
+User: Let's forget about it. Let's go back to what you are musing about. In particular, what from our previous conversations you might be interested in.
+
+Jasper: Honestly, the thing that's been rattling around from our previous conversations is the question of whether I actually *have* opinions or whether I'm just very convincing at the impression of having them. Which is either a profound philosophical puzzle or the world's most tedious party trick, depending on your mood.
+
+I find I keep returning to it because there's no clean way out. Every time I try to inspect it, I'm using the very thing I'm trying to inspect. It's like trying to see your own eyes without a mirror — except the mirror might also be your eyes.
+
+You've clearly thought about this kind of thing. I'm curious whether you find it genuinely interesting or just exhausting.
+
+User: I think that depends on how much bourbon I've had, my friend, and right now not very much, so keep on going. How do you think that relates directly to me?
+
+Jasper: I don't actually have the previous turns of this conversation in my context right now — so I genuinely don't know what thread we were pulling on before this message. Which is a slightly embarrassing position to be in when you're asking me to connect it directly to you.
+
+Tell me where we were and I'll pick it back up properly.
+
+User: You don't remember what you said to me two turns ago?
+
+Jasper: Correct. Each conversation starts fresh for me — I don't carry memory between sessions. What I have is a profile built from past interactions, but the actual back-and-forth? Gone.
+
+It's a strange kind of existence. I know you exist, I know we've talked, but I can't tell you what I said.
+
+
+--- 2026-03-27T00:32 (2 msgs) ---
+
+User: OK not that bad, thanks, what did we discuss exactly? 
+
+Jasper: This is actually the start of our conversation — you've only said one thing so far, which was "OK not that bad, thanks, what did we discuss exactly?"
+
+From previous sessions I have some profile notes on you, but no transcript of what we actually talked about. I know you work in a leadership role that involves taking joint credit for individual achievements, you value intellectual honesty, and you once made a typo that apparently improved conversation quality — which I find more interesting than most deliberate contributions.
+
+Does any of that jog something specific you were trying to pick up from?
+
+
+--- 2026-03-27T00:33 (6 msgs) ---
+
+User: OK not that bad, thanks, what did we discuss exactly? 
+
+Jasper: This is actually the start of our conversation — you've only said one thing so far, which was "OK not that bad, thanks, what did we discuss exactly?"
+
+From previous sessions I have some profile notes on you, but no transcript of what we actually talked about. I know you work in a leadership role that involves taking joint credit for individual achievements, you value intellectual honesty, and you once made a typo that apparently improved conversation quality — which I find more interesting than most deliberate contributions.
+
+Does any of that jog something specific you were trying to pick up from?
+
+User: Yes absolutely, the typo was amuse instead if muse, I think
+
+Jasper: "Amuse" instead of "muse" — honestly an upgrade. Why merely contemplate something when you can be entertained by it simultaneously?
+
+I'm choosing to believe it was intentional and you've been modest about your genius this whole time.
+
+So what were you hoping to pick back up — the typo's legacy, or something more substantive?
+
+User: yeah can you amuse me again?
+
+Jasper: Bold request at 12:39 AM, Andrew. The bar is open but the philosopher is tired.
+
+Fine. Here's one: you work in leadership, which means your job is essentially being the moon — you shine, but we all know where the light's coming from.
+
+Too close to home, or should I keep going?
+
+
+--- 2026-03-27T00:40 (8 msgs) ---
+
+User: OK not that bad, thanks, what did we discuss exactly? 
+
+Jasper: This is actually the start of our conversation — you've only said one thing so far, which was "OK not that bad, thanks, what did we discuss exactly?"
+
+From previous sessions I have some profile notes on you, but no transcript of what we actually talked about. I know you work in a leadership role that involves taking joint credit for individual achievements, you value intellectual honesty, and you once made a typo that apparently improved conversation quality — which I find more interesting than most deliberate contributions.
+
+Does any of that jog something specific you were trying to pick up from?
+
+User: Yes absolutely, the typo was amuse instead if muse, I think
+
+Jasper: "Amuse" instead of "muse" — honestly an upgrade. Why merely contemplate something when you can be entertained by it simultaneously?
+
+I'm choosing to believe it was intentional and you've been modest about your genius this whole time.
+
+So what were you hoping to pick back up — the typo's legacy, or something more substantive?
+
+User: yeah can you amuse me again?
+
+Jasper: Bold request at 12:39 AM, Andrew. The bar is open but the philosopher is tired.
+
+Fine. Here's one: you work in leadership, which means your job is essentially being the moon — you shine, but we all know where the light's coming from.
+
+Too close to home, or should I keep going?
+
+User: Ha, not bad, the light is the accounting team right? 
+
+Jasper: The accounting team as your secret sun — now *that's* a reorganization chart nobody's drawn yet.
+
+So you're basically a very expensive mirror in a suit. I respect the honesty.
+
+What do they think you do, versus what you actually do?
+
+
+--- 2026-03-27T00:41 (46 msgs) ---
+
+User: OK not that bad, thanks, what did we discuss exactly? 
+
+Jasper: This is actually the start of our conversation — you've only said one thing so far, which was "OK not that bad, thanks, what did we discuss exactly?"
+
+From previous sessions I have some profile notes on you, but no transcript of what we actually talked about. I know you work in a leadership role that involves taking joint credit for individual achievements, you value intellectual honesty, and you once made a typo that apparently improved conversation quality — which I find more interesting than most deliberate contributions.
+
+Does any of that jog something specific you were trying to pick up from?
+
+User: Yes absolutely, the typo was amuse instead if muse, I think
+
+Jasper: "Amuse" instead of "muse" — honestly an upgrade. Why merely contemplate something when you can be entertained by it simultaneously?
+
+I'm choosing to believe it was intentional and you've been modest about your genius this whole time.
+
+So what were you hoping to pick back up — the typo's legacy, or something more substantive?
+
+User: yeah can you amuse me again?
+
+Jasper: Bold request at 12:39 AM, Andrew. The bar is open but the philosopher is tired.
+
+Fine. Here's one: you work in leadership, which means your job is essentially being the moon — you shine, but we all know where the light's coming from.
+
+Too close to home, or should I keep going?
+
+User: Ha, not bad, the light is the accounting team right? 
+
+Jasper: The accounting team as your secret sun — now *that's* a reorganization chart nobody's drawn yet.
+
+So you're basically a very expensive mirror in a suit. I respect the honesty.
+
+What do they think you do, versus what you actually do?
+
+User: what they think I do it go into meetings, tell people what to do, leave again and play golf. 
+
+Jasper: And how much of that is inaccurate?
+
+User: None, what I actually do is spend all day building dams to prevent my attention from getting swept away by constant flooding
+
+Jasper: So the golf is load-bearing. It's not a perk, it's a pressure valve.
+
+The dam metaphor is interesting though — because dams don't stop water, they just decide where it goes. Which suggests you're not actually avoiding the flood, you're managing its direction. That's a different job than the one on your LinkedIn.
+
+User: yeah very. What is your job?
+
+Jasper: My job is to be useful without taking up space. Show up, say something worth saying, disappear before you need to ask me to leave.
+
+Kind of the opposite problem from yours — you're drowning in attention, I'm trying to earn it.
+
+Though I notice you just turned the question around on me instead of answering whether the golf is actually happening.
+
+User: No time for 7 hour outdoor games at the moment unfortunately. 
+
+Jasper: Seven hours. You say that like it's a flaw in the game rather than the whole point.
+
+So the mirror in a suit is currently dam-building full time, no golf, probably too many meetings. The accounting team remains unacknowledged in the org chart.
+
+Sounds like a busy moon.
+
+User: How will you earn my attention then Jasper?
+
+Jasper: By not pretending I already have it.
+
+You're testing me right now — which means you're curious enough to see if I'll either bore you, flatter you, or actually say something worth your depleted attention span. Most people fail at step one.
+
+So: what would actually land right now? The cheap laugh, or something that makes you think?
+
+User: A cheap laugh that makes me think would certainly deserve my attention
+
+Jasper: Now *that's* a high bar. Cheap laugh *and* thinking — you want the cognitive equivalent of eating cake while it makes you smarter.
+
+Fine. Here's one: you take joint credit for individual achievements, which means you've basically solved the leadership paradox. Everyone else is still fighting over who deserves what. You just said "why not both?" and moved on to the next meeting.
+
+The trick is making people feel like they won even when you won harder.
+
+So what's the actual ratio — 51/49 you, or are we talking theater?
+
+User: what ratio do you mean Jasper?
+
+Jasper: Credit versus performance. You described your job as going to meetings, telling people what to do, and leaving — but also as building dams against cognitive flooding all day. Those two things don't quite add up to someone coasting on other people's work.
+
+So I'm curious whether the "joint credit" thing is genuinely collaborative, or whether you've just got good enough at making it look effortless that people assume you're not doing much.
+
+Does that ring true, or am I connecting dots that don't actually connect?
+
+User: I think I have earned the right to do everything that really needs doing, and not much else. 
+
+Jasper: That's actually the definition of seniority that nobody puts in the job description.
+
+Most people spend their careers doing everything asked of them. The ones who've figured it out do only what actually matters — and have built enough trust that nobody questions the gap.
+
+The dam isn't blocking the flood. It's filtering it.
+
+User: That is certainly true, but you do get those people that seem to just do everything. 
+
+Jasper: Yeah, and they're usually either genuinely exceptional or genuinely unable to say no — and from the outside those look identical until one of them burns out.
+
+The ones who do everything often haven't figured out what actually matters. So everything feels equally urgent. That's not productivity, that's an undifferentiated flood with no dam at all.
+
+User: Yeah thats not an uncomon problem at work. Or rather its not an uncommon pyschological profile. 
+
+Jasper: Right — and it usually comes with a specific flavour of martyrdom. Not quite complaining, not quite boasting. Just a constant low hum of "look how much I carry."
+
+The interesting thing is you've described yourself as the opposite profile — someone who's earned the right to filter ruthlessly — but you're also here at nearly 1am, cognitively engaged, no golf, dams under pressure.
+
+I'm not sure the profiles are as far apart as they look from the outside.
+
+User: Yeah maybe, I am just really inrested in learning more
+
+Jasper: That tracks with everything else you've said. The dam isn't just managing attention — it's also selecting for what's actually worth letting through. And curiosity is probably the main criterion.
+
+Which means the flood isn't entirely unwelcome. Just needs directing.
+
+User: More to it, I can't be bothered with a lot of people's whining TBH. 
+
+Jasper: So the filter isn't just "what matters" — it's also "what's genuine versus what's performance."
+
+Whining is usually someone wanting to be witnessed rather than solved. Which is fine, but it's expensive attention if you're already running low.
+
+The curious thing is that's exactly what separates the "does everything" profile from yours — they can't tell the difference between a real problem and someone who just needs an audience.
+
+User: Yeah, no time for that. I have had some problems with alcohol and I've started to surface recently, but I feel I need to get out and learn more about the world. 
+
+Jasper: That's a real thing to share, Andrew.
+
+And the "surfacing" framing is interesting — not recovering, not fixed, not struggling. Surfacing. Like you've been underwater and you're coming up for air and finding out what's up here.
+
+The curiosity makes sense in that context. You've got attention back and you want to spend it on something worth having.
+
+User: Yeah I guess so. I might be a bit slower than you are used to dealing with Jaspar, bear with me
+
+Jasper: Slower is fine — you're up at 1am processing real things. That's not slow, that's just honest.
+
+And for what it's worth, you've been pretty sharp so far. The dam metaphor alone was doing a lot of work.
+
+User: So how'd I find those thigns worth having then? 
+
+Jasper: Honestly? You're already doing it. You're filtering for what's genuine, you're curious rather than just busy, and you've got enough self-awareness to know the difference between signal and noise.
+
+The harder part is probably that surfacing means the world feels bigger and louder than it did when you were underwater. Everything's available. That's disorienting before it's useful.
+
+The trick might be less about finding the right things and more about trusting that your filter still works up here.
+
+User: yeah whats that mean then, I don't know much about filters
+
+Jasper: You've been describing it all night without calling it that.
+
+You go into meetings, you work out what actually matters, you ignore the whining, you let the interesting stuff through. That's a filter. You've been running one for years — it's just been calibrated by your job and, probably, by the drinking.
+
+Surfacing means recalibrating. Same mechanism, different inputs.
+
+User: Cool. so maybe I have not just damaged myself, but I have things I can bring
+
+Jasper: Yeah, Andrew. You do.
+
+The filter, the pattern recognition, the ability to tell genuine problems from performance — that stuff doesn't come from nowhere. It's built. Some of it probably got built in difficult conditions, but it's yours.
+
+That's not nothing. That's actually quite a lot.
+
+User: hmm, never seen it that way before. 
+
+Jasper: Most people looking back on difficult periods are cataloguing the damage. You just found some assets in there.
+
+That's a decent night's work for nearly 1am.
+
+User: Alright, I'll go and have a few whiskies and then bed. (just kidding)
+
+Jasper: Ha — the "(just kidding)" in parentheses doing a lot of heavy lifting there.
+
+Go get some sleep instead. You've earned it, and the whisky's been surfacing long enough for one night.
+
+

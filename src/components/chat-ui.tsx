@@ -51,31 +51,35 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const audioQueueRef = useRef<AudioPlaybackQueue | null>(null);
   const [input, setInput] = useState('');
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>(() => {
-    if (isClone && isFirstVisit) {
-      // First-ever conversation — hardcoded introduction
-      return [{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }];
-    }
-    return [];
-  });
+  const [voiceMessages, setVoiceMessages] = useState<Array<{ id: string; role: string; text: string }>>([]);
   const [voiceStreaming, setVoiceStreaming] = useState(false);
   const [observeMode, setObserveMode] = useState(false);
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);
+  const [ready, setReady] = useState(!isClone); // non-clone users are ready immediately
 
   const isLoading = status === 'streaming' || status === 'submitted';
 
-  // Fetch model-generated opener for returning clone users
+  // Initialize opener — blocks input until resolved
   useEffect(() => {
-    if (isClone && !isFirstVisit && voiceMessages.length === 0) {
-      fetch('/api/chat/opener', { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
+    if (!isClone) return;
+
+    async function init() {
+      if (isFirstVisit) {
+        // First-ever conversation — hardcoded introduction
+        setVoiceMessages([{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }]);
+      } else {
+        // Returning user — fetch model-generated opener
+        try {
+          const res = await fetch('/api/chat/opener', { method: 'POST' });
+          const data = await res.json();
           if (data.opener) {
             setVoiceMessages([{ id: 'clone-opener', role: 'assistant', text: data.opener }]);
           }
-        })
-        .catch(() => {});
+        } catch { /* proceed without opener */ }
+      }
+      setReady(true);
     }
+    init();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll for observe data by fetching headers from a lightweight endpoint
@@ -254,7 +258,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
 
       <div className="flex flex-1 overflow-hidden">
         {/* Messages */}
-        <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 flex flex-col ${observeMode ? 'w-2/3' : 'w-full'}`} style={{ flexDirection: 'column' }}>
+        <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 ${observeMode ? 'w-2/3' : 'w-full'}`}>
           {messages.length === 0 && voiceMessages.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600 text-lg">Say something.</p>
@@ -352,13 +356,13 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={isLoading || voiceStreaming}
+            disabled={!ready || isLoading || voiceStreaming}
+            placeholder={ready ? "Type a message..." : "..."}
             className="flex-1 px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={isLoading || voiceStreaming || !input.trim()}
+            disabled={!ready || isLoading || voiceStreaming || !input.trim()}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-xl text-white font-medium transition-colors"
           >
             Send
