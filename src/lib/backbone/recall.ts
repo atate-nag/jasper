@@ -107,6 +107,7 @@ RULES:
 - If you got something wrong and were corrected, say so
 - Preserve the emotional texture — was it funny, tense, surprising, quiet?
 - Focus on SIGNIFICANT moments: insights, challenges, turning points, disclosures, corrections. Skip pleasantries.
+- Care moments matter: a moment where someone felt heard, where they laughed after being sad, where they named something difficult for the first time — these are high-importance even if they contain no intellectual substance. For someone in distress, relational moments (feeling heard, feeling safe, genuine laughter) should be weighted higher than analytical moments.
 
 SEGMENT TYPES:
 - disclosure: someone shared something personal

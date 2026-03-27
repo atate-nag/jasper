@@ -27,8 +27,13 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
   // Recall-triggered messages always get at least standard tier
   const recallBoost = directive.recallTriggered && directive.recallTier !== 'none';
 
-  if (directive.communicativeIntent === 'distress') {
+  // Distress detection — explicit intent OR emotional signal (negative + aroused)
+  const isDistressed = directive.communicativeIntent === 'distress' ||
+    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
+
+  if (isDistressed) {
     tier = 'deep';
+    console.log('[model] Distress detected — routing to Opus for wider frame');
   } else if (directive.communicativeIntent === 'connecting' && !recallBoost) {
     tier = 'ambient';
   } else if (directive.communicativeIntent === 'requesting_input' && directive.emotionalArousal > 0.7) {
@@ -106,6 +111,35 @@ function shouldFireDepthScoring(
 
   const signalCount = noveltySignals.filter(Boolean).length;
   return signalCount >= DEPTH_EVAL_CONFIG.noveltyThreshold;
+}
+
+function buildCareContext(profile: PersonContext['profile']): string | null {
+  const parts: string[] = [];
+
+  parts.push('WIDER FRAME FOR THIS PERSON:');
+  parts.push('This person appears to be in distress. Before responding,');
+  parts.push('consider: what are they actually asking for? It may not be');
+  parts.push('what the words literally request. Consider their capacity');
+  parts.push('right now — are they in a position to act on advice, or do');
+  parts.push('they need to feel held first?');
+
+  if (profile?.current_state?.active_concerns?.length) {
+    parts.push(`\nWhat's been on their mind: ${profile.current_state.active_concerns.join('; ')}`);
+  }
+
+  if (profile?.current_state?.mood_trajectory) {
+    parts.push(`Recent mood: ${profile.current_state.mood_trajectory}`);
+  }
+
+  if (profile?.patterns?.stress_responses?.length) {
+    const joinField = (val: unknown): string => Array.isArray(val) ? val.join('; ') : String(val);
+    parts.push(`How they handle stress: ${joinField(profile.patterns.stress_responses)}`);
+  }
+
+  parts.push('\nDo not solve. Be with them first. Solutions can wait');
+  parts.push('for when they have the capacity to use them.');
+
+  return parts.join('\n');
 }
 
 function buildPersonContextBlock(profile: PersonContext['profile'], conversationCount: number): string | null {
@@ -205,6 +239,21 @@ function buildPromptComponents(
         content: personBlock,
         label: 'person_context_block',
         tokenEstimate: est(personBlock),
+      });
+    }
+  }
+
+  // Priority 87: Care context — wider frame for distressed users
+  const isDistressedIntent = directive.communicativeIntent === 'distress' ||
+    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
+  if (isDistressedIntent) {
+    const careContext = buildCareContext(personContext.profile);
+    if (careContext) {
+      components.push({
+        priority: 87,
+        content: careContext,
+        label: 'care_context',
+        tokenEstimate: est(careContext),
       });
     }
   }
