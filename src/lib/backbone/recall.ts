@@ -282,11 +282,13 @@ async function vectorSearch(
   }
 
   if (error) {
-    console.warn('[recall] Vector search RPC failed:', error.message);
+    console.warn('[recall] Vector search RPC failed:', error.message, error.details || '');
+  } else if (!data || data.length === 0) {
+    console.log('[recall] RPC returned 0 rows (no error)');
   }
 
   // Fallback: fetch segments for all user IDs and compute similarity in JS
-  console.log('[recall] Using JS-side similarity scoring fallback');
+  console.log(`[recall] Using JS-side fallback for ${userIds.length} user IDs: ${userIds.join(', ')}`);
   const { data: allSegments, error: fallbackError } = await getSupabaseAdmin()
     .from('conversation_segments')
     .select('id, content, importance_score, segment_type, topic_labels, emotional_valence, conversation_date, conversation_id, embedding')
@@ -295,7 +297,16 @@ async function vectorSearch(
     .order('importance_score', { ascending: false })
     .limit(100);
 
-  if (fallbackError || !allSegments) return [];
+  if (fallbackError) {
+    console.warn('[recall] Fallback query failed:', fallbackError.message);
+    return [];
+  }
+  if (!allSegments || allSegments.length === 0) {
+    console.log('[recall] Fallback found 0 segments');
+    return [];
+  }
+
+  console.log(`[recall] Fallback fetched ${allSegments.length} segments, computing similarity`);
 
   // Compute cosine similarity in JS
   return allSegments
