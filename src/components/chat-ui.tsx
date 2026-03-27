@@ -264,6 +264,23 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
               <p className="text-gray-600 text-lg">Say something.</p>
             </div>
           )}
+          {/* Voice/opener messages first, then regular chat messages */}
+          {voiceMessages.map((m) => {
+            if (!m.text) return null;
+            return (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    m.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-gray-100'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                </div>
+              </div>
+            );
+          })}
           {/* Regular chat messages */}
           {messages.map((m) => {
             const text = getTextContent(m);
@@ -278,23 +295,6 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
                   }`}
                 >
                   <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
-                </div>
-              </div>
-            );
-          })}
-          {/* Voice mode messages */}
-          {voiceMessages.map((m) => {
-            if (!m.text) return null;
-            return (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    m.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-100'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
                 </div>
               </div>
             );
