@@ -187,6 +187,77 @@ export async function replaceProfileSection(
 // mergeProfileUpdates — deep merge with semantic dedup
 // ---------------------------------------------------------------------------
 
+/**
+ * Smart merge: ask Haiku whether proposed entries should REPLACE existing
+ * ones (refinement), ADD as genuinely new, or SKIP as duplicates.
+ * Returns the merged array — sharper, not longer.
+ */
+async function smartMergeField(
+  existing: string[],
+  proposed: string[],
+  fieldName: string,
+): Promise<string[]> {
+  const { callModel } = await import('@/lib/model-client');
+  const { getModelRouting } = await import('@/lib/config/models');
+
+  const prompt = `You are deduplicating a profile field "${fieldName}".
+
+EXISTING observations (numbered):
+${existing.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+
+PROPOSED new observations:
+${proposed.map((p, i) => `P${i + 1}. ${p}`).join('\n')}
+
+For each proposed observation, decide:
+- REPLACE [n]: if it updates, refines, or supersedes existing observation n. The proposed version is better — more specific, more current, or more accurate.
+- ADD: if it's genuinely new information not covered by any existing entry.
+- SKIP: if it's a duplicate or less specific version of something already there.
+
+The goal: the list should get SHARPER with each update, not longer. Prefer REPLACE over ADD when the new observation covers similar ground but says it better. Prefer SKIP when the existing version is already good enough.
+
+Return ONLY a JSON array of decisions:
+[{"proposed": "P1", "action": "REPLACE", "target": 3}, {"proposed": "P2", "action": "ADD"}, {"proposed": "P3", "action": "SKIP"}]`;
+
+  const routing = getModelRouting();
+  const text = await callModel(
+    routing.classification, // Haiku — cheap, fast, good at structured comparison
+    '',
+    [{ role: 'user', content: prompt }],
+  );
+
+  const cleaned = text
+    .replace(/^\s*```(?:json)?\s*\n?/i, '')
+    .replace(/\n?\s*```\s*$/i, '')
+    .trim();
+
+  const decisions = JSON.parse(cleaned) as Array<{
+    proposed: string;
+    action: 'REPLACE' | 'ADD' | 'SKIP';
+    target?: number;
+  }>;
+
+  // Apply decisions
+  const result = [...existing];
+
+  for (const decision of decisions) {
+    const pIndex = parseInt(decision.proposed.replace('P', '')) - 1;
+    if (pIndex < 0 || pIndex >= proposed.length) continue;
+    const entry = proposed[pIndex];
+
+    if (decision.action === 'REPLACE' && decision.target != null) {
+      const targetIndex = decision.target - 1;
+      if (targetIndex >= 0 && targetIndex < result.length) {
+        result[targetIndex] = entry; // replace with sharper version
+      }
+    } else if (decision.action === 'ADD') {
+      result.push(entry);
+    }
+    // SKIP: do nothing
+  }
+
+  return result;
+}
+
 export async function mergeProfileUpdates(
   userId: string,
   updates: UserProfileUpdate,
@@ -211,22 +282,25 @@ export async function mergeProfileUpdates(
     const current = (base as unknown as Record<string, unknown>)[field] ?? {};
     let fieldMerged = mergeFields(current, incoming) as Record<string, unknown>;
 
-    // Semantic dedup on array fields
+    // Smart merge: for each string array, ask Haiku whether proposed entries
+    // should REPLACE existing ones, ADD as new, or SKIP as duplicates.
+    // The profile should get sharper with each session, not longer.
     for (const [key, value] of Object.entries(fieldMerged)) {
       if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
         const existingArr = ((current as Record<string, unknown>)[key] as string[]) ?? [];
         const candidates = value.filter((v: string) => !existingArr.includes(v));
-        if (candidates.length > 0) {
-          const deduped = await dedupCandidates(candidates, existingArr, `${field}.${key}`);
-          fieldMerged[key] = [...new Set([...existingArr, ...deduped])];
+        if (candidates.length > 0 && existingArr.length > 0) {
+          try {
+            fieldMerged[key] = await smartMergeField(existingArr, candidates, `${field}.${key}`);
+          } catch {
+            // Fallback: basic dedup
+            fieldMerged[key] = [...new Set([...existingArr, ...candidates])];
+          }
         }
       }
     }
 
-    // Hard array caps — the classifier prompt asks for limits but doesn't respect them.
-    // This is the enforcement layer. When an array exceeds its cap, keep only the
-    // most recent entries (last N). The compression script handles quality merging;
-    // this just prevents unbounded growth between compressions.
+    // Hard array caps — enforcement layer after smart merge
     const ARRAY_CAPS: Record<string, number> = {
       decision_patterns: 8,
       growth_edges: 6,
