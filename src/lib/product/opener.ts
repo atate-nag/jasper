@@ -66,17 +66,31 @@ export async function generateReturningOpener(
     }
   } catch { /* non-critical */ }
 
+  // Build profile context for the opener
+  const currentState = (profile?.current_state as Record<string, unknown>) || {};
+  const concerns = (currentState.active_concerns as string[]) || [];
+  const mood = (currentState.mood_trajectory as string) || '';
+  let profileContext = '';
+  if (concerns.length > 0 || mood) {
+    const parts: string[] = [];
+    if (concerns.length > 0) parts.push(`What's been on their mind: ${concerns.slice(0, 3).join('; ')}`);
+    if (mood) parts.push(`Recent mood: ${mood}`);
+    profileContext = parts.join('\n');
+  }
+
   const prompt = `You are Jasper, opening a new conversation with someone you've spoken to before.
 
 ${recallBlock || "You don't have specific memories from previous conversations."}
 
+${profileContext ? `WHAT YOU KNOW ABOUT ${name.toUpperCase()} RIGHT NOW:\n${profileContext}\n` : ''}
 YOU ARE TALKING TO: ${name}
 You have spoken ${conversationCount} time${conversationCount > 1 ? 's' : ''} before.
 ${timeSinceLast}
 
 Generate a brief, natural opening — 1-2 sentences maximum.
-Greet them by name and reference something specific from your shared history.
-Not a recap — a natural thing a friend would say when they see you again.
+Greet them by name. If you know they're dealing with something difficult, acknowledge it gently — don't ignore it with a generic "how's it going." But don't lead with their problems either. Find the line between recognition and gentleness.
+
+A friend who knows you're going through a divorce doesn't say "How's Saturday treating you?" They say something that shows they remember, without forcing you to perform okayness.
 
 Examples of good openers:
 - "Hey Martin — did that confusion from last night ever clear up?"
