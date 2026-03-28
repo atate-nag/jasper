@@ -24,20 +24,32 @@ async function main(): Promise<void> {
   // Find user ID
   let userId: string | null = null;
 
-  // Try by user_name in turn_logs
-  const { data: byName } = await sb.from('turn_logs')
-    .select('user_id')
-    .ilike('user_name', `%${search}%`)
-    .limit(1);
-  if (byName?.[0]) userId = byName[0].user_id;
-
   // Try by email in auth
+  const { data: { users } } = await sb.auth.admin.listUsers();
+  const authUser = users.find(u =>
+    u.email?.toLowerCase().includes(search.toLowerCase())
+  );
+  if (authUser) userId = authUser.id;
+
+  // Try by name in profile
   if (!userId) {
-    const { data: { users } } = await sb.auth.admin.listUsers();
-    const user = users.find(u =>
-      u.email?.toLowerCase().includes(search.toLowerCase())
-    );
-    if (user) userId = user.id;
+    const { data: profiles } = await sb.from('user_profiles')
+      .select('user_id, identity')
+      .limit(100);
+    const match = profiles?.find(p => {
+      const name = (p.identity as Record<string, unknown>)?.name as string;
+      return name?.toLowerCase().includes(search.toLowerCase());
+    });
+    if (match) userId = match.user_id;
+  }
+
+  // Try by user_name in turn_logs
+  if (!userId) {
+    const { data: byName } = await sb.from('turn_logs')
+      .select('user_id')
+      .ilike('user_name', `%${search}%`)
+      .limit(1);
+    if (byName?.[0]) userId = byName[0].user_id;
   }
 
   if (!userId) {
