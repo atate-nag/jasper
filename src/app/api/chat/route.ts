@@ -94,7 +94,8 @@ export async function POST(req: Request): Promise<Response> {
       { role: 'user' as const, content: steering.reformulatedMessage },
     ];
 
-    console.log(`[TURN] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | user="${lastUserMessage.slice(0, 50)}"`);
+    const userName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
+    console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | "${lastUserMessage.slice(0, 50)}"`);
 
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
