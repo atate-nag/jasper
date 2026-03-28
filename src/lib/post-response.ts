@@ -162,10 +162,15 @@ async function runSessionEnd(
   console.log(`[session-end] Processing session for user ${userId.slice(0, 8)}... (${messages.length} messages, ${SESSION_INACTIVITY_MS / 1000}s inactivity)`);
 
   try {
-    // 1. Summarise
+    // 1. Summarise — with profile and previous summaries for context
     const { summariseConversation } = await import('@/lib/backbone/summarise');
-    const summary = await summariseConversation(messages);
-    console.log(`[session-end] Summary: ${summary.slice(0, 80)}...`);
+    const { getProfile } = await import('@/lib/backbone/profile');
+    const { getRecentConversations } = await import('@/lib/backbone/conversations');
+    const userProfile = await getProfile(userId);
+    const recentConvos = await getRecentConversations(userId, 5);
+    const prevSummaries = recentConvos.filter(c => c.summary).map(c => c.summary!).slice(-3);
+    const summary = await summariseConversation(messages, userProfile, prevSummaries);
+    console.log(`[session-end] Summary: ${summary.slice(0, 120)}...`);
 
     // 2. Extract segments for deep recall
     if (conversationId) {

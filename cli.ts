@@ -362,7 +362,8 @@ async function shutdown(): Promise<void> {
   console.log('\n  saving conversation...');
 
   try {
-    const summary = await summariseConversation(history);
+    const prevSummaries = recentConversations.filter(c => c.summary).map(c => c.summary!).slice(-3);
+    const summary = await summariseConversation(history, profile, prevSummaries);
 
     const hasAdvisoryContent = history.some(m => m.role === 'user' && !detectActivity(m.content));
 
