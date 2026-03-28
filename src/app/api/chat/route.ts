@@ -110,7 +110,7 @@ export async function POST(req: Request): Promise<Response> {
         }
         handlePostResponse(
           user.id, conversationId, sessionHistory,
-          lastUserMessage, text, steering, responseLatencyMs,
+          lastUserMessage, text, steering, responseLatencyMs, userName,
         ).catch(console.error);
       },
     });

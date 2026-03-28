@@ -54,6 +54,7 @@ export async function handlePostResponse(
   assistantResponse: string,
   steering: Awaited<ReturnType<typeof steer>>,
   responseLatencyMs: number,
+  userName?: string,
 ): Promise<void> {
   const turnNumber = sessionHistory.filter(m => m.role === 'user').length;
 
@@ -75,14 +76,16 @@ export async function handlePostResponse(
     }
   }
 
-  // 2. Log turn
+  // 2. Log turn — enriched with queryable observe data
+  const d = steering.responseDirective;
+  const promptTokens = Math.ceil(steering.systemPrompt.split(/\s+/).length * 1.3);
   try {
     await getSupabaseAdmin().from('turn_logs').insert({
       user_id: userId,
       conversation_id: conversationId,
       turn_number: turnNumber,
       user_message: userMessage,
-      response_directive: steering.responseDirective,
+      response_directive: d,
       selected_policy_id: steering.selectedPolicy.id,
       exploration_flag: false,
       system_prompt_hash: createHash('sha256').update(steering.systemPrompt).digest('hex').slice(0, 16),
@@ -90,6 +93,17 @@ export async function handlePostResponse(
       model_config: steering.modelConfig,
       assistant_response: assistantResponse,
       response_latency_ms: responseLatencyMs,
+      // Queryable observe fields
+      user_name: userName,
+      intent: d.communicativeIntent,
+      posture: d.recommendedPostureClass,
+      policy_id: steering.selectedPolicy.id,
+      model_used: steering.modelConfig.model,
+      model_tier: steering.modelConfig.tier,
+      prompt_tokens: promptTokens,
+      history_message_count: sessionHistory.length,
+      recall_tier: d.recallTriggered ? d.recallTier : null,
+      steer_latency_ms: responseLatencyMs,
     });
   } catch (err) {
     console.error('[post-response] Turn log failed:', err);

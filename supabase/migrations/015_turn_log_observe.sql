@@ -1,0 +1,13 @@
+-- Add observe/steering data columns to turn_logs for queryable diagnostics
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS user_name TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS intent TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS posture TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS policy_id TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS model_used TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS model_tier TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS history_message_count INTEGER;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS recall_tier TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS depth_score INTEGER;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS depth_thread TEXT;
+ALTER TABLE turn_logs ADD COLUMN IF NOT EXISTS steer_latency_ms INTEGER;

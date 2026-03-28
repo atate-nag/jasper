@@ -186,9 +186,10 @@ export async function POST(req: Request): Promise<Response> {
 
           // Post-response: persist, log, classify, extract — same as text route
           const responseLatencyMs = Date.now() - responseStart;
+          const voiceUserName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
           handlePostResponse(
             user.id, conversationId, sessionHistory,
-            lastUserMessage, fullText, steering, responseLatencyMs,
+            lastUserMessage, fullText, steering, responseLatencyMs, voiceUserName,
           ).catch(console.error);
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
