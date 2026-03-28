@@ -48,21 +48,44 @@ export async function generateReturningOpener(
 
   const recallBlock = await getProactiveRecall(userId, profile);
 
-  // Work out how long since last conversation
-  let timeSinceLast = '';
+  // Work out temporal context — when they last spoke and what about
+  let temporalContext = '';
   try {
     const { getSupabase } = await import('@/lib/supabase');
     const { data } = await getSupabase()
       .from('conversations')
-      .select('started_at')
+      .select('started_at, messages, summary')
       .eq('user_id', userId)
       .order('started_at', { ascending: false })
       .limit(1);
-    if (data?.[0]?.started_at) {
-      const hoursAgo = Math.round((Date.now() - new Date(data[0].started_at).getTime()) / (1000 * 60 * 60));
-      if (hoursAgo < 1) timeSinceLast = `You last spoke to ${name} less than an hour ago.`;
-      else if (hoursAgo < 24) timeSinceLast = `You last spoke to ${name} ${hoursAgo} hours ago.`;
-      else timeSinceLast = `You last spoke to ${name} ${Math.round(hoursAgo / 24)} days ago.`;
+    if (data?.[0]) {
+      const lastConv = data[0];
+      const lastTime = new Date(lastConv.started_at);
+      const now = new Date();
+      const hoursAgo = Math.round((now.getTime() - lastTime.getTime()) / (1000 * 60 * 60));
+      const timeStr = hoursAgo < 1 ? 'less than an hour ago'
+        : hoursAgo < 24 ? `${hoursAgo} hours ago`
+        : `${Math.round(hoursAgo / 24)} days ago`;
+
+      const parts = [`You last spoke to ${name} ${timeStr} (at ${lastTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}).`];
+      parts.push(`The current time is ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} on ${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}.`);
+
+      // Include what the last conversation was about
+      if (lastConv.summary) {
+        parts.push(`Last conversation summary: ${lastConv.summary}`);
+      } else if (lastConv.messages?.length > 0) {
+        // No summary — use last few messages as context
+        const lastMsgs = lastConv.messages.slice(-4);
+        const lastExchange = lastMsgs.map((m: { role: string; content: string }) =>
+          `${m.role === 'user' ? name : 'You'}: ${m.content.slice(0, 100)}`
+        ).join('\n');
+        parts.push(`End of last conversation:\n${lastExchange}`);
+      }
+
+      // Temporal reasoning hint
+      parts.push(`Consider what may have happened SINCE the last conversation. If they were about to do something (a meeting, a confrontation, a difficult task), it has likely already happened by now. Ask about the outcome, not the preparation.`);
+
+      temporalContext = parts.join('\n');
     }
   } catch { /* non-critical */ }
 
@@ -85,12 +108,13 @@ ${recallBlock || "You don't have specific memories from previous conversations."
 ${profileContext ? `WHAT YOU KNOW ABOUT ${name.toUpperCase()} RIGHT NOW:\n${profileContext}\n` : ''}
 YOU ARE TALKING TO: ${name}
 You have spoken ${conversationCount} time${conversationCount > 1 ? 's' : ''} before.
-${timeSinceLast}
+
+${temporalContext}
 
 Generate a brief, natural opening — 1-2 sentences maximum.
 Greet them by name. If you know they're dealing with something difficult, acknowledge it gently — don't ignore it with a generic "how's it going." But don't lead with their problems either. Find the line between recognition and gentleness.
 
-A friend who knows you're going through a divorce doesn't say "How's Saturday treating you?" They say something that shows they remember, without forcing you to perform okayness.
+TEMPORAL AWARENESS: If the last conversation ended with them about to do something (a confrontation, a meeting, a task), and enough time has passed that it's likely happened, ask about how it went — not whether they're ready for it. The event is in the past now.
 
 Examples of good openers:
 - "Hey Martin — did that confusion from last night ever clear up?"
