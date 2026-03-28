@@ -20,13 +20,14 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const body = await req.json();
-  const { messages: rawMessages = [], previousDirective } = body as {
+  const { messages: rawMessages = [], previousDirective, openerMessage } = body as {
     messages?: Array<{
       role: string;
       content?: string;
       parts?: Array<{ type: string; text?: string }>;
     }>;
     previousDirective?: ResponseDirective;
+    openerMessage?: string;
   };
 
   // AI SDK v6 sends parts instead of content — extract text from both formats
@@ -93,6 +94,11 @@ export async function POST(req: Request): Promise<Response> {
       })),
       { role: 'user' as const, content: steering.reformulatedMessage },
     ];
+
+    // Include opener so the model sees its own greeting before the user's first reply
+    if (openerMessage && !sessionHistory.some(m => m.role === 'assistant')) {
+      llmMessages.unshift({ role: 'assistant' as const, content: openerMessage });
+    }
 
     const userName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | "${lastUserMessage.slice(0, 50)}"`);

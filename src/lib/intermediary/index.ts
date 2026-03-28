@@ -21,7 +21,10 @@ import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
 
 export function messageReferencesJasper(message: string): boolean {
-  return /\b(you ('re|are|were|did|don't|do|have|make|made|keep|seem|sound|feel)|that felt|a bit (abrupt|harsh|rushed|cold|stiff|formal)|too (fast|quick|direct|blunt)|on the spot|making me feel|not (helpful|what I|listening)|I (don't like|didn't like|wish you|need you to))\b/i.test(message);
+  // Detect when the user is commenting on Jasper's behaviour — corrections,
+  // complaints, or feedback about how Jasper responded. Must NOT match normal
+  // conversational use of "you" (e.g. "what do you think?", "you make a good point").
+  return /\b(you('re| are| were| sound| seem| feel| come across as| keep) (being )?(a bit |too |very |really )?(abrupt|harsh|rushed|cold|stiff|formal|blunt|dismissive|condescending|patroni[sz]ing|preachy|generic|vague|robotic|weird|off|wrong|unhelpful)|that('s| is| was| felt) (a bit |too |really )?(abrupt|harsh|rushed|cold|dismissive|condescending|patroni[sz]ing|off|much|weird)|too (fast|quick|direct|blunt|formal|long|short|vague)|on the spot|making me feel|not (helpful|what I (asked|meant|wanted)|listening|hearing me)|I (don't like|didn't like|wish you|need you to) (how|when|the way)|don't (do that|talk to me|assume|put words)|stop (doing that|asking|being)|that's not what I (said|meant|asked))\b/i.test(message);
 }
 
 function determineModelConfig(directive: ResponseDirective, ctx: PersonContext, userMessage?: string): ModelConfig {

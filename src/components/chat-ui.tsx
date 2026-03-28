@@ -43,7 +43,11 @@ interface ChatUIProps {
 }
 
 export function ChatUI({ isClone = false, isFirstVisit = false, userName = null }: ChatUIProps = {}) {
-  const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), []);
+  const openerRef = useRef<string | null>(null);
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: '/api/chat',
+    body: () => openerRef.current ? { openerMessage: openerRef.current } : {},
+  }), []);
   const { messages, sendMessage, status } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -55,6 +59,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const [voiceStreaming, setVoiceStreaming] = useState(false);
   const [observeMode, setObserveMode] = useState(false);
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);
+  const [openerMessage, setOpenerMessage] = useState<string | null>(null);
   const [ready, setReady] = useState(!isClone); // non-clone users are ready immediately
 
   const isLoading = status === 'streaming' || status === 'submitted';
@@ -67,6 +72,8 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
       if (isFirstVisit) {
         // First-ever conversation — hardcoded introduction
         setVoiceMessages([{ id: 'clone-opener', role: 'assistant', text: CLONE_OPENER }]);
+        setOpenerMessage(CLONE_OPENER);
+        openerRef.current = CLONE_OPENER;
       } else {
         // Returning user — fetch model-generated opener
         try {
@@ -74,6 +81,8 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
           const data = await res.json();
           if (data.opener) {
             setVoiceMessages([{ id: 'clone-opener', role: 'assistant', text: data.opener }]);
+            setOpenerMessage(data.opener);
+            openerRef.current = data.opener;
           }
         } catch { /* proceed without opener */ }
       }
