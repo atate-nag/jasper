@@ -28,13 +28,15 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
   // Recall-triggered messages always get at least standard tier
   const recallBoost = directive.recallTriggered && directive.recallTier !== 'none';
 
-  // Distress detection — explicit intent OR emotional signal (negative + aroused)
-  const isDistressed = directive.communicativeIntent === 'distress' ||
-    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
+  // Distress detection — explicit intent only, OR strong emotional signal
+  // (not triggered by practical frustration like spreadsheet problems)
+  const isExplicitDistress = directive.communicativeIntent === 'distress';
+  const isEmotionalDistress = directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4;
+  const isDistressed = isExplicitDistress || isEmotionalDistress;
 
   if (isDistressed) {
     tier = 'deep';
-    console.log('[model] Distress detected — routing to Opus for wider frame');
+    console.log(`[model] Distress detected (${isExplicitDistress ? 'explicit' : 'emotional signal'}) — routing to Opus`);
   } else if (directive.communicativeIntent === 'connecting' && !recallBoost) {
     tier = 'ambient';
   } else if (directive.communicativeIntent === 'requesting_input' && directive.emotionalArousal > 0.7) {
@@ -228,10 +230,10 @@ function buildPromptComponents(
     }
   }
 
-  // Priority 87: Care context — wider frame for distressed users
-  const isDistressedIntent = directive.communicativeIntent === 'distress' ||
-    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
-  if (isDistressedIntent) {
+  // Priority 87: Care context — wider frame for genuinely distressed users
+  const isDistressedForCare = directive.communicativeIntent === 'distress' ||
+    (directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4);
+  if (isDistressedForCare) {
     const careContext = buildCareContext(personContext.profile);
     if (careContext) {
       components.push({
