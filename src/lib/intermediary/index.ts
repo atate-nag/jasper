@@ -20,7 +20,11 @@ import { fireRelationalConnectionCheck, consumePendingConnection, type Relationa
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
 
-function determineModelConfig(directive: ResponseDirective, ctx: PersonContext): ModelConfig {
+function messageReferencesJasper(message: string): boolean {
+  return /\b(you ('re|are|were|did|don't|do|have|make|made|keep|seem|sound|feel)|that felt|a bit (abrupt|harsh|rushed|cold|stiff|formal)|too (fast|quick|direct|blunt)|on the spot|making me feel|not (helpful|what I|listening)|I (don't like|didn't like|wish you|need you to))\b/i.test(message);
+}
+
+function determineModelConfig(directive: ResponseDirective, ctx: PersonContext, userMessage?: string): ModelConfig {
   const depth = ctx.relationshipMeta.conversationCount > 15 ? 'established' : 'other';
 
   let tier: 'ambient' | 'standard' | 'deep' = 'standard';
@@ -43,6 +47,12 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext):
     tier = 'deep';
   } else if (directive.communicativeIntent === 'sense_making' && depth === 'established') {
     tier = 'deep';
+  }
+
+  // Relational feedback — user correcting Jasper's behaviour needs full capability
+  if (userMessage && tier === 'ambient' && messageReferencesJasper(userMessage)) {
+    tier = 'standard';
+    console.log('[model] Relational feedback detected — routing to Sonnet');
   }
 
   // Get provider config from routing
@@ -717,7 +727,7 @@ export async function steer(
   const reformulatedMessage = reformulate(userMessage, enrichedPersonContext, policy, directive);
 
   // 7. Determine model config
-  const modelConfig = determineModelConfig(directive, enrichedPersonContext);
+  const modelConfig = determineModelConfig(directive, enrichedPersonContext, userMessage);
 
   // 8. Determine post-response actions
   const isSubstantive = directive.communicativeIntent !== 'connecting' &&
