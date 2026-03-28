@@ -1,10 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { Message } from '@/types/message';
-
-const MODEL = 'claude-haiku-4-5-20251001';
+import { callModel } from '@/lib/model-client';
+import { getModelRouting } from '@/lib/config/models';
 
 // ---------------------------------------------------------------------------
-// summariseConversation — 2-3 sentence summary with topic vs fact distinction
+// summariseConversation — captures what mattered, not just what was discussed
 // ---------------------------------------------------------------------------
 
 export async function summariseConversation(
@@ -12,33 +11,34 @@ export async function summariseConversation(
 ): Promise<string> {
   if (messages.length === 0) return '';
 
-  const anthropic = new Anthropic();
-
   const conversationText = messages
     .map((m) => `${m.role}: ${m.content}`)
     .join('\n');
 
-  const prompt = `Summarise this conversation in 2-3 sentences. Focus on what was discussed and any outcomes or decisions.
+  const prompt = `Summarise this conversation in 2-4 sentences. Focus on:
+- What mattered to the person, not just what was discussed
+- Any emotional shifts, turning points, or moments of genuine connection
+- What was left unresolved — open threads that should be followed up
+- How the person was feeling at the end vs the beginning
 
 CRITICAL DISTINCTION — topic vs fact:
-- TOPIC: what was talked about ("Discussed career options and feeling stuck at current job")
-- FACT: durable truth about the person ("User is a software engineer considering a career change")
-Your summary should capture TOPICS. Facts are extracted separately.
+- TOPIC: what was talked about ("Discussed career options and feeling stuck")
+- FACT: durable truth about the person ("User is a software engineer")
+Your summary should capture TOPICS and EMOTIONAL ARC. Facts are extracted separately.
 
-Keep the summary concise, neutral, and in third person ("The user discussed..." not "You discussed...").
+Write as Jasper recalling the conversation — first person, not clinical third person.
+"We talked about..." not "The user discussed..."
 
 Conversation:
 ${conversationText}`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const routing = getModelRouting();
+    const text = await callModel(
+      routing.summary,
+      '',
+      [{ role: 'user', content: prompt }],
+    );
 
     return text.trim();
   } catch (err) {

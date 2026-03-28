@@ -143,19 +143,19 @@ Return ONLY a valid JSON array:
 ]`;
 }
 
-async function extractWithHaiku(prompt: string): Promise<SegmentExtraction[]> {
+async function extractSegmentsWithModel(prompt: string): Promise<SegmentExtraction[]> {
   try {
-    const response = await getAnthropic().messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      temperature: 0,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const { callModel: callModelFn } = await import('@/lib/model-client');
+    const { getModelRouting: getRouting } = await import('@/lib/config/models');
+    const routing = getRouting();
 
-    const block = response.content[0];
-    if (block.type !== 'text') return [];
+    const text = await callModelFn(
+      routing.segmentExtraction,
+      '',
+      [{ role: 'user', content: prompt }],
+    );
 
-    const raw = block.text
+    const raw = text
       .replace(/^```(?:json)?\s*\n?/i, '')
       .replace(/\n?```\s*$/i, '')
       .trim();
@@ -220,7 +220,7 @@ export async function extractSegments(
   if (messages.length < 4) return; // skip very short conversations
 
   const prompt = buildSegmentExtractionPrompt(messages);
-  const extractions = await extractWithHaiku(prompt);
+  const extractions = await extractSegmentsWithModel(prompt);
 
   console.log(`[recall] Extracted ${extractions.length} segments from conversation ${conversationId}`);
 

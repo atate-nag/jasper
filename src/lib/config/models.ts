@@ -10,6 +10,8 @@ export interface ModelRouting {
   standard: ProviderModelConfig;
   deep: ProviderModelConfig;
   depthScoring: ProviderModelConfig;
+  summary: ProviderModelConfig;
+  segmentExtraction: ProviderModelConfig;
   opener: ProviderModelConfig;
   classification: ProviderModelConfig;
 }
@@ -35,8 +37,20 @@ const DEFAULT_ROUTING: ModelRouting = {
   },
   depthScoring: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     maxTokens: 200,
+    defaultTemperature: 0.3,
+  },
+  summary: {
+    provider: 'anthropic',
+    model: 'claude-opus-4-6',
+    maxTokens: 1000,
+    defaultTemperature: 0.3,
+  },
+  segmentExtraction: {
+    provider: 'anthropic',
+    model: 'claude-opus-4-6',
+    maxTokens: 2000,
     defaultTemperature: 0.3,
   },
   opener: {
@@ -92,8 +106,20 @@ const FALLBACK_ROUTING: ModelRouting = {
   },
   depthScoring: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5',
+    model: 'claude-opus-4-5',
     maxTokens: 200,
+    defaultTemperature: 0.3,
+  },
+  summary: {
+    provider: 'anthropic',
+    model: 'claude-opus-4-5',
+    maxTokens: 1000,
+    defaultTemperature: 0.3,
+  },
+  segmentExtraction: {
+    provider: 'anthropic',
+    model: 'claude-opus-4-5',
+    maxTokens: 2000,
     defaultTemperature: 0.3,
   },
 };
