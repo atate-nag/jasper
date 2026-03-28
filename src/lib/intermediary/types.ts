@@ -97,6 +97,15 @@ export interface SteeringResult {
     logTurn: boolean;
   };
   conversationState: ConversationState;
+  analytics?: {
+    promptComponents: Record<string, number>;
+    recallSegmentsReturned: number;
+    recallTopSimilarity: number | null;
+    depthConsumed: boolean;
+    relationalConsumed: boolean;
+    careContextInjected: boolean;
+    distressOverride: boolean;
+  };
 }
 
 export type { ConversationState } from './conversation-tracker';

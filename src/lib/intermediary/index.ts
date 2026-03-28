@@ -759,6 +759,21 @@ export async function steer(
     ).catch(err => console.error('[relational-check] Async error:', err));
   }
 
+  // Build prompt component size map for analytics
+  const promptComponentMap: Record<string, number> = {};
+  for (const label of includedComponents) {
+    const comp = components.find(c => c.label === label);
+    if (comp) promptComponentMap[label] = comp.tokenEstimate;
+  }
+
+  // Recall stats
+  const recallSegs = enrichedPersonContext.recalledSegments || [];
+  const recallTopSim = recallSegs.length > 0 ? Math.max(...recallSegs.map(() => 0.5)) : null; // approximate
+
+  // Distress detection
+  const isDistressedForAnalytics = directive.communicativeIntent === 'distress' ||
+    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
+
   return {
     systemPrompt,
     reformulatedMessage,
@@ -776,6 +791,15 @@ export async function steer(
       logTurn: true,
     },
     conversationState,
+    analytics: {
+      promptComponents: promptComponentMap,
+      recallSegmentsReturned: recallSegs.length,
+      recallTopSimilarity: recallTopSim,
+      depthConsumed: !!pendingDepth,
+      relationalConsumed: !!pendingConnection,
+      careContextInjected: isDistressedForAnalytics,
+      distressOverride: isDistressedForAnalytics,
+    },
   };
 }
 

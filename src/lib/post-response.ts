@@ -76,8 +76,9 @@ export async function handlePostResponse(
     }
   }
 
-  // 2. Log turn — enriched with queryable observe data
+  // 2. Log turn — full analytics
   const d = steering.responseDirective;
+  const a = steering.analytics;
   const promptTokens = Math.ceil(steering.systemPrompt.split(/\s+/).length * 1.3);
   try {
     await getSupabaseAdmin().from('turn_logs').insert({
@@ -95,15 +96,33 @@ export async function handlePostResponse(
       response_latency_ms: responseLatencyMs,
       // Queryable observe fields
       user_name: userName,
+      user_message_preview: userMessage.slice(0, 120),
+      user_message_length: userMessage.length,
       intent: d.communicativeIntent,
+      valence: d.emotionalValence,
+      arousal: d.emotionalArousal,
       posture: d.recommendedPostureClass,
+      classification_confidence: d.confidence,
+      provider: steering.modelConfig.provider,
       policy_id: steering.selectedPolicy.id,
       model_used: steering.modelConfig.model,
       model_tier: steering.modelConfig.tier,
+      distress_override: a?.distressOverride || false,
       prompt_tokens: promptTokens,
+      prompt_components: a?.promptComponents || null,
       history_message_count: sessionHistory.length,
       recall_tier: d.recallTriggered ? d.recallTier : null,
+      recall_segments_returned: a?.recallSegmentsReturned || 0,
+      recall_top_similarity: a?.recallTopSimilarity || null,
+      depth_consumed: a?.depthConsumed || false,
+      relational_consumed: a?.relationalConsumed || false,
+      care_context_injected: a?.careContextInjected || false,
+      response_preview: assistantResponse.slice(0, 120),
+      response_length: assistantResponse.length,
       steer_latency_ms: responseLatencyMs,
+      conversation_mode: steering.conversationState?.conversationDevelopmentMode ? 'development' : 'user-centric',
+      thread_count: steering.conversationState?.activeThreads?.length || 0,
+      energy: steering.conversationState?.energyTrajectory || null,
     });
   } catch (err) {
     console.error('[post-response] Turn log failed:', err);
@@ -223,7 +242,52 @@ async function runSessionEnd(
       console.error('[session-end] Metacognition failed:', err);
     }
 
-    // 5. End conversation record
+    // 5. Compute session analytics from turn logs
+    let sessionAnalytics = null;
+    if (conversationId) {
+      try {
+        const { data: turns } = await getSupabaseAdmin()
+          .from('turn_logs')
+          .select('intent, model_used, model_tier, recall_tier, recall_segments_returned, depth_score, depth_consumed, relational_connection_found, relational_consumed, care_context_injected, distress_override, prompt_tokens, response_length, steer_latency_ms')
+          .eq('conversation_id', conversationId);
+
+        if (turns && turns.length > 0) {
+          const models: Record<string, number> = {};
+          const intents: Record<string, number> = {};
+          turns.forEach(t => {
+            if (t.model_used) models[t.model_used] = (models[t.model_used] || 0) + 1;
+            if (t.intent) intents[t.intent] = (intents[t.intent] || 0) + 1;
+          });
+
+          sessionAnalytics = {
+            turn_count: turns.length,
+            models_used: models,
+            intents_distribution: intents,
+            recall_stats: {
+              total_recalls: turns.filter(t => t.recall_tier).length,
+              avg_segments: turns.filter(t => t.recall_segments_returned).reduce((s, t) => s + (t.recall_segments_returned || 0), 0) / (turns.filter(t => t.recall_tier).length || 1),
+            },
+            depth_scoring: {
+              consumed: turns.filter(t => t.depth_consumed).length,
+            },
+            relational_connections: {
+              found: turns.filter(t => t.relational_connection_found).length,
+              consumed: turns.filter(t => t.relational_consumed).length,
+            },
+            care: {
+              distress_turns: turns.filter(t => t.distress_override).length,
+              care_context_injections: turns.filter(t => t.care_context_injected).length,
+            },
+            prompt_size_avg: Math.round(turns.reduce((s, t) => s + (t.prompt_tokens || 0), 0) / turns.length),
+            response_length_avg: Math.round(turns.reduce((s, t) => s + (t.response_length || 0), 0) / turns.length),
+          };
+        }
+      } catch (err) {
+        console.error('[session-end] Analytics computation failed:', err);
+      }
+    }
+
+    // 6. End conversation record
     if (conversationId) {
       try {
         await getSupabaseAdmin()
@@ -231,6 +295,7 @@ async function runSessionEnd(
           .update({
             ended_at: new Date().toISOString(),
             summary,
+            analytics: sessionAnalytics,
           })
           .eq('id', conversationId);
       } catch (err) {
