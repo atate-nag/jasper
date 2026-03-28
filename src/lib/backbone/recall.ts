@@ -220,9 +220,11 @@ export async function extractSegments(
   if (messages.length < 4) return; // skip very short conversations
 
   const prompt = buildSegmentExtractionPrompt(messages);
+  const contextTokens = Math.ceil(prompt.split(/\s+/).length * 1.3);
+  console.log(`[segments] Opus | context: ~${contextTokens} tokens | ${messages.length} turns`);
   const extractions = await extractSegmentsWithModel(prompt);
 
-  console.log(`[recall] Extracted ${extractions.length} segments from conversation ${conversationId}`);
+  console.log(`[segments] Extracted ${extractions.length} segments from conversation ${conversationId}`);
 
   for (const segment of extractions) {
     try {

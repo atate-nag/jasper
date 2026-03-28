@@ -701,7 +701,7 @@ export async function steer(
     console.log('[depth-scoring] Firing async evaluation...');
     const userTurnCount = sessionHistory.filter(m => m.role === 'user').length;
     Promise.race([
-      scoreDepth(userMessage, sessionHistory),
+      scoreDepth(userMessage, sessionHistory, personContext.profile as unknown as Record<string, unknown>),
       new Promise<null>(resolve => setTimeout(() => resolve(null), DEPTH_EVAL_CONFIG.evaluationTimeout)),
     ]).then(result => {
       if (!result) {

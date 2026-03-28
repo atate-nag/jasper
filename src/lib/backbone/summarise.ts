@@ -85,6 +85,8 @@ export async function summariseConversation(
     : '';
 
   const fullPrompt = `${SUMMARY_PROMPT}\n\n${contextBlock}CONVERSATION:\n${conversationText}`;
+  const contextTokens = Math.ceil(fullPrompt.split(/\s+/).length * 1.3);
+  console.log(`[summary] Opus | context: ~${contextTokens} tokens | ${messages.length} turns`);
 
   try {
     const routing = getModelRouting();

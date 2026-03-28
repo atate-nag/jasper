@@ -66,18 +66,34 @@ export interface DepthScore {
 export async function scoreDepth(
   userMessage: string,
   sessionHistory: Message[],
+  profile?: Record<string, unknown> | null,
 ): Promise<DepthScore | null> {
+  // Full conversation context — no truncation
   const historyText = sessionHistory
-    .slice(-10)
-    .map(m => `[${m.role}]: ${m.content}`)
+    .map((m, i) => `[turn ${i}] [${m.role}]: ${m.content}`)
     .join('\n');
 
+  // Add profile context if available
+  let profileContext = '';
+  if (profile) {
+    const parts: string[] = [];
+    const identity = profile.identity as Record<string, unknown> | undefined;
+    if (identity?.name) parts.push(`Person: ${identity.name}`);
+    const concerns = (profile.current_state as Record<string, unknown>)?.active_concerns;
+    if (Array.isArray(concerns) && concerns.length > 0) parts.push(`On their mind: ${concerns.slice(0, 3).join('; ')}`);
+    const patterns = profile.patterns as Record<string, unknown> | undefined;
+    if (patterns?.growth_edges && Array.isArray(patterns.growth_edges)) parts.push(`Growth edges: ${patterns.growth_edges.slice(0, 3).join('; ')}`);
+    if (parts.length > 0) profileContext = `\nPERSON CONTEXT:\n${parts.join('\n')}\n`;
+  }
+
   const prompt = DEPTH_SCORING_PROMPT
-    .replace('{conversation_history}', historyText)
+    .replace('{conversation_history}', historyText + profileContext)
     .replace('{user_message}', userMessage);
 
+  const contextTokens = Math.ceil(prompt.split(/\s+/).length * 1.3);
+
   try {
-    console.log('[depth-scoring] Calling model...');
+    console.log(`[depth-scoring] Calling Opus | context: ~${contextTokens} tokens | ${sessionHistory.length} turns`);
     const routing = getModelRouting();
     const text = await callModel(
       routing.depthScoring,
