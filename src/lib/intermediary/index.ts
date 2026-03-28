@@ -761,6 +761,7 @@ export async function steer(
 
   // Fire relational connection check on substantive turns
   const relationalThreads = (personContext.profile as unknown as Record<string, unknown>).relational_threads as RelationalThread[] | undefined;
+  console.log(`[relational-check] threads=${relationalThreads?.length || 0}, tier=${modelConfig.tier}, eligible=${(relationalThreads?.length || 0) > 0 && modelConfig.tier !== 'ambient'}`);
   if (relationalThreads && relationalThreads.length > 0 && modelConfig.tier !== 'ambient') {
     fireRelationalConnectionCheck(
       userMessage,
