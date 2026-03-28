@@ -16,6 +16,7 @@ import { validate } from './validation';
 import { antiSycophancyReinjection } from './sycophancy';
 import { scoreDepth } from './depth-scoring';
 import { storePendingDepth, consumePendingDepth, type PendingDepth } from './pending-depth';
+import { fireRelationalConnectionCheck, consumePendingConnection, type RelationalThread } from './relational-threads';
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
 
@@ -188,6 +189,7 @@ function buildPromptComponents(
   sessionHistory: Message[],
   voiceMode: boolean = false,
   pendingDepth?: PendingDepth | null,
+  pendingConnection?: { thread: string; connection: string } | null,
   sessionStartRecall?: string | null,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
@@ -524,6 +526,17 @@ You are speaking out loud. Your response will be converted to speech.
     });
   }
 
+  // Relational thread connection signal
+  if (pendingConnection) {
+    const name = personContext.profile.identity?.name || 'this person';
+    components.push({
+      priority: 78,
+      content: `[RELATIONAL THREAD]: There's a connection between the current conversation and something foundational to your relationship with ${name}: "${pendingConnection.connection}" (from your shared thread about ${pendingConnection.thread}). Raise this naturally if it's genuinely relevant — don't force it. If the conversation has moved on, let it go.`,
+      label: 'relational_connection',
+      tokenEstimate: 60,
+    });
+  }
+
   return components;
 }
 
@@ -587,6 +600,7 @@ export async function steer(
   // Check for pending depth thread from previous turn
   const turnNumber = sessionHistory.filter(m => m.role === 'user').length;
   const pendingDepth = consumePendingDepth(personContext.profile.user_id, turnNumber);
+  const pendingConnection = consumePendingConnection(personContext.profile.user_id, turnNumber);
 
   // 1. Classify
   const rawDirective = await classify(userMessage, personContext, sessionHistory, previousDirective);
@@ -682,7 +696,7 @@ export async function steer(
   }
 
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, sessionStartRecall);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, pendingConnection, sessionStartRecall);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message
@@ -719,6 +733,18 @@ export async function steer(
         console.log('[depth-scoring] Below threshold, discarded');
       }
     }).catch(err => console.error('[depth-scoring] Async error:', err));
+  }
+
+  // Fire relational connection check on substantive turns
+  const relationalThreads = (personContext.profile as unknown as Record<string, unknown>).relational_threads as RelationalThread[] | undefined;
+  if (relationalThreads && relationalThreads.length > 0 && modelConfig.tier !== 'ambient') {
+    fireRelationalConnectionCheck(
+      userMessage,
+      sessionHistory,
+      relationalThreads,
+      personContext.profile.user_id,
+      sessionHistory.filter(m => m.role === 'user').length,
+    ).catch(err => console.error('[relational-check] Async error:', err));
   }
 
   return {
