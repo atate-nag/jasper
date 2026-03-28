@@ -7,14 +7,44 @@ import { getSupabase } from '@/lib/supabase';
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
 
+function buildProactiveRecallQuery(profile: Record<string, unknown>): string {
+  const parts: string[] = [];
+
+  const name = (profile?.identity as Record<string, unknown>)?.name as string;
+  if (name) parts.push(name);
+
+  // Active concerns — the most salient things on their mind
+  const concerns = ((profile?.current_state as Record<string, unknown>)?.active_concerns as string[]) || [];
+  if (concerns.length > 0) parts.push(concerns.slice(0, 2).join(', '));
+
+  // Key relationships
+  const relationships = (profile?.relationships as Record<string, unknown>) || {};
+  const relationshipKeys = Object.keys(relationships).slice(0, 2);
+  if (relationshipKeys.length > 0) parts.push(relationshipKeys.join(', '));
+
+  // Relational threads keywords
+  const threads = (profile?.relational_threads as Array<{ keywords?: string[] }>) || [];
+  if (threads.length > 0) {
+    const threadKeywords = threads
+      .slice(0, 2)
+      .flatMap(t => t.keywords?.slice(0, 2) || []);
+    if (threadKeywords.length > 0) parts.push(threadKeywords.join(', '));
+  }
+
+  if (parts.length <= 1) parts.push('previous conversations, important moments');
+
+  return parts.join(', ');
+}
+
 async function getProactiveRecall(
   userId: string,
   profile: Record<string, unknown>,
 ): Promise<string | null> {
   try {
+    const query = buildProactiveRecallQuery(profile);
+    console.log(`[proactive-recall] Query: "${query.slice(0, 100)}"`);
+
     const name = (profile?.identity as Record<string, unknown>)?.name as string || 'this person';
-    const concerns = ((profile?.current_state as Record<string, unknown>)?.active_concerns as string[]) || [];
-    const query = `${name} recent conversations ${concerns.slice(0, 2).join(' ')}`.trim();
 
     const recallRequest: RecallRequest = {
       query,

@@ -190,20 +190,8 @@ export function evaluateMetaheuristics(
     }
   }
 
-  // 5. Warmth authenticity
-  if (metrics.warmthTokenVariety <= 2 && metrics.totalTurns > 6) {
-    patterns.push({
-      metaheuristic: 'warmth_authenticity',
-      observation: `Only ${metrics.warmthTokenVariety} distinct warmth expressions used across ${metrics.totalTurns} turns. Warmth may feel formulaic.`,
-      evidence: [`Low warmth token variety: ${metrics.warmthTokenVariety}`],
-      severity: 'note',
-    });
-    adaptations.push({
-      parameter: 'warmth_expression_style',
-      direction: 'diversify',
-      rationale: 'Warmth expressions are repetitive. Vary the language.',
-    });
-  }
+  // 5. Warmth authenticity — deferred to async evaluation in runSessionMetacognition
+  // (replaced token-counting with a model call that assesses whether warmth was present)
 
   return { patterns, adaptations };
 }
@@ -221,6 +209,53 @@ export async function runSessionMetacognition(
 
   const metrics = computeSessionMetrics(messages, policyIds);
   const { patterns, adaptations } = evaluateMetaheuristics(metrics);
+
+  // Async warmth check — replaces token-counting with semantic evaluation
+  if (messages.length > 6) {
+    try {
+      const { callModel } = await import('@/lib/model-client');
+      const { getModelRouting } = await import('@/lib/config/models');
+      const routing = getModelRouting();
+
+      const conversationText = messages.map((m, i) => `[turn ${i}] [${m.role}]: ${m.content}`).join('\n');
+      const warmthResult = await callModel(
+        routing.classification, // Haiku
+        '',
+        [{ role: 'user', content: `Review this conversation. Answer two questions:
+
+1. Did the assistant acknowledge the person's emotional state at any point — not with a formula, but with genuine recognition of how they were feeling? (yes/no)
+
+2. Were there moments where the assistant prioritised presence over problem-solving — staying with the person rather than moving to solutions? (yes/no)
+
+If the conversation was purely intellectual/analytical with no emotional content, both answers should be "n/a".
+
+Return JSON: {"emotional_content": true/false, "acknowledged": true/false, "presence_shown": true/false}
+Return raw JSON only.
+
+Conversation:
+${conversationText}` }],
+      );
+
+      const cleaned = warmthResult.replace(/^\s*```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+      const parsed = JSON.parse(cleaned);
+
+      if (parsed.emotional_content && !parsed.acknowledged && !parsed.presence_shown) {
+        patterns.push({
+          metaheuristic: 'warmth_authenticity',
+          observation: 'Person expressed emotion but Jasper did not acknowledge their feelings or show presence.',
+          evidence: ['Emotional content present but not met with acknowledgment or presence'],
+          severity: 'flag',
+        });
+        adaptations.push({
+          parameter: 'warmth_expression_style',
+          direction: 'increase',
+          rationale: 'Emotional content was present but not acknowledged. Prioritise presence over analysis.',
+        });
+      }
+    } catch {
+      // Non-critical — skip warmth check if model call fails
+    }
+  }
 
   if (patterns.length === 0) return null; // nothing noteworthy
 

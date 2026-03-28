@@ -674,8 +674,20 @@ export async function steer(
   if (isFirstTurn && isReturningUser && enrichedPersonContext.recalledSegments.length === 0) {
     try {
       const name = enrichedPersonContext.profile.identity?.name || 'this person';
+      // Build salience-weighted query from profile data
+      const queryParts: string[] = [name];
       const concerns = enrichedPersonContext.profile.current_state?.active_concerns || [];
-      const query = `${name} recent conversations ${concerns.slice(0, 2).join(' ')}`.trim();
+      if (concerns.length > 0) queryParts.push(concerns.slice(0, 2).join(', '));
+      const profileData = enrichedPersonContext.profile as unknown as Record<string, unknown>;
+      const threads = (profileData.relational_threads as Array<{ keywords?: string[] }>) || [];
+      if (threads.length > 0) {
+        const keywords = threads.slice(0, 2).flatMap(t => t.keywords?.slice(0, 2) || []);
+        if (keywords.length > 0) queryParts.push(keywords.join(', '));
+      }
+      const relationships = enrichedPersonContext.profile.relationships || {};
+      const relKeys = Object.keys(relationships).slice(0, 2);
+      if (relKeys.length > 0) queryParts.push(relKeys.join(', '));
+      const query = queryParts.join(', ');
       const proactiveRecall = await recall({
         query,
         userId: enrichedPersonContext.profile.user_id,
