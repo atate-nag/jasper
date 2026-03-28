@@ -87,7 +87,7 @@ async function main(): Promise<void> {
 
   // Get turn logs for this user (for analytics overlay)
   const { data: turnLogs } = await sb.from('turn_logs')
-    .select('conversation_id, turn_number, intent, posture, policy_id, model_used, model_tier, prompt_tokens, recall_tier, recall_segments_returned, depth_score, depth_consumed, relational_connection_found, care_context_injected, distress_override, steer_latency_ms, valence, arousal')
+    .select('conversation_id, turn_number, intent, posture, policy_id, model_used, model_tier, prompt_tokens, recall_tier, recall_segments_returned, depth_score, depth_consumed, relational_connection_found, care_context_injected, distress_override, steer_latency_ms, valence, arousal, correction_detected, disclosure_depth, user_initiated_topic, wit_detected')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -154,6 +154,10 @@ async function main(): Promise<void> {
         if (turnLog.relational_connection_found) parts.push('relational-hit');
         if (turnLog.care_context_injected) parts.push('CARE');
         if (turnLog.distress_override) parts.push('DISTRESS');
+        if (turnLog.correction_detected) parts.push('CORRECTION');
+        if (turnLog.wit_detected) parts.push('WIT');
+        if (turnLog.user_initiated_topic) parts.push('initiated');
+        if (turnLog.disclosure_depth) parts.push(`disc:${(turnLog.disclosure_depth as number).toFixed(1)}`);
         if (parts.length > 0) analyticsLine = `  \x1b[2m[${parts.join(' | ')}]\x1b[0m`;
         logIndex++;
       }

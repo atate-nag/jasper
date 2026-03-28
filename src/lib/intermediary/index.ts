@@ -6,7 +6,7 @@ import type { Message } from '@/types/message';
 import { recall } from '@/lib/backbone/recall';
 import type { RecallRequest } from '@/lib/backbone/recall';
 import type { ProductIdentity, SteeringResult, ResponseDirective, ModelConfig, Policy } from './types';
-import { updateConversationState, initialConversationState, type ConversationState } from './conversation-tracker';
+import { updateConversationState, initialConversationState, detectLaughter, activateWitCluster, type ConversationState } from './conversation-tracker';
 import { classify } from './classifier';
 import { selectPolicy } from './policy-selector';
 import { loadPolicies } from './policy-loader';
@@ -20,7 +20,7 @@ import { fireRelationalConnectionCheck, consumePendingConnection, type Relationa
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
 
-function messageReferencesJasper(message: string): boolean {
+export function messageReferencesJasper(message: string): boolean {
   return /\b(you ('re|are|were|did|don't|do|have|make|made|keep|seem|sound|feel)|that felt|a bit (abrupt|harsh|rushed|cold|stiff|formal)|too (fast|quick|direct|blunt)|on the spot|making me feel|not (helpful|what I|listening)|I (don't like|didn't like|wish you|need you to))\b/i.test(message);
 }
 
@@ -675,9 +675,21 @@ export async function steer(
     }
   }
 
+  // 3.5 Detect laughter → activate wit cluster
+  let witConversationState = conversationState;
+  if (detectLaughter(userMessage)) {
+    witConversationState = activateWitCluster(witConversationState);
+    console.log('[wit] Laughter detected in user message — wit cluster activated (4 turns)');
+  }
+
   // 4. Load and select policy
+  const isDistressedForCare = directive.communicativeIntent === 'distress' ||
+    (directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4);
   const policies = loadPolicies();
-  const policy = selectPolicy(directive, enrichedPersonContext, policies, conversationState);
+  const policy = selectPolicy(directive, enrichedPersonContext, policies, witConversationState, {
+    careContextActive: isDistressedForCare,
+    witClusterActive: witConversationState.witClusterActive,
+  });
 
   // 4.5 Proactive recall at session start — give Jasper memories of this person
   let sessionStartRecall: string | null = null;
@@ -787,6 +799,17 @@ export async function steer(
   const isDistressedForAnalytics = directive.communicativeIntent === 'distress' ||
     (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
 
+  // Behavioural analytics
+  const isCorrection = messageReferencesJasper(userMessage);
+  const disclosureIntents: string[] = ['sharing', 'venting', 'distress'];
+  const disclosureDepth = disclosureIntents.includes(directive.communicativeIntent)
+    ? directive.emotionalArousal : 0;
+  // User-initiated topic proxy: message > 50 chars and previous Jasper message didn't end with a question
+  const lastAssistantMsg = sessionHistory.filter(m => m.role === 'assistant').pop();
+  const previousEndedWithQuestion = lastAssistantMsg ? /\?\s*$/.test(lastAssistantMsg.content) : false;
+  const userInitiatedTopic = userMessage.length > 50 && !previousEndedWithQuestion;
+  const laughterDetected = detectLaughter(userMessage);
+
   return {
     systemPrompt,
     reformulatedMessage,
@@ -803,7 +826,7 @@ export async function steer(
       extractMemories: isSubstantive,
       logTurn: true,
     },
-    conversationState,
+    conversationState: witConversationState,
     analytics: {
       promptComponents: promptComponentMap,
       recallSegmentsReturned: recallSegs.length,
@@ -812,6 +835,10 @@ export async function steer(
       relationalConsumed: !!pendingConnection,
       careContextInjected: isDistressedForAnalytics,
       distressOverride: isDistressedForAnalytics,
+      correctionDetected: isCorrection,
+      disclosureDepth,
+      userInitiatedTopic,
+      laughterDetected,
     },
   };
 }

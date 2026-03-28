@@ -123,9 +123,26 @@ export async function handlePostResponse(
       conversation_mode: steering.conversationState?.conversationDevelopmentMode ? 'development' : 'user-centric',
       thread_count: steering.conversationState?.activeThreads?.length || 0,
       energy: steering.conversationState?.energyTrajectory || null,
+      // Behavioural analytics
+      correction_detected: a?.correctionDetected || false,
+      disclosure_depth: a?.disclosureDepth || 0,
+      user_initiated_topic: a?.userInitiatedTopic || false,
     });
   } catch (err) {
     console.error('[post-response] Turn log failed:', err);
+  }
+
+  // 2.5. Retroactive wit detection — if user laughed, mark PREVIOUS turn as wit
+  if (a?.laughterDetected && conversationId && turnNumber > 1) {
+    Promise.resolve(
+      getSupabaseAdmin()
+        .from('turn_logs')
+        .update({ wit_detected: true })
+        .eq('conversation_id', conversationId)
+        .eq('turn_number', turnNumber - 1)
+    ).then(() => {
+      console.log(`[wit] Laughter detected — marking turn ${turnNumber - 1} as wit`);
+    }).catch((err: unknown) => console.error('[wit] Failed to mark previous turn:', err));
   }
 
   // 3. Classify profile (async, non-blocking)
@@ -243,12 +260,30 @@ async function runSessionEnd(
     }
 
     // 5. Compute session analytics from turn logs
+    let sessionGapHours: number | null = null;
+    if (conversationId) {
+      try {
+        const { data: prevConv } = await getSupabaseAdmin()
+          .from('conversations')
+          .select('ended_at')
+          .eq('user_id', userId)
+          .neq('id', conversationId)
+          .not('ended_at', 'is', null)
+          .order('ended_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (prevConv?.ended_at) {
+          sessionGapHours = Math.round((Date.now() - new Date(prevConv.ended_at).getTime()) / (1000 * 60 * 60) * 10) / 10;
+        }
+      } catch { /* first session — no gap */ }
+    }
+
     let sessionAnalytics = null;
     if (conversationId) {
       try {
         const { data: turns } = await getSupabaseAdmin()
           .from('turn_logs')
-          .select('intent, model_used, model_tier, recall_tier, recall_segments_returned, depth_score, depth_consumed, relational_connection_found, relational_consumed, care_context_injected, distress_override, prompt_tokens, response_length, steer_latency_ms')
+          .select('intent, model_used, model_tier, recall_tier, recall_segments_returned, depth_score, depth_consumed, relational_connection_found, relational_consumed, care_context_injected, distress_override, prompt_tokens, response_length, steer_latency_ms, correction_detected, disclosure_depth, user_initiated_topic, wit_detected, turn_number')
           .eq('conversation_id', conversationId);
 
         if (turns && turns.length > 0) {
@@ -280,6 +315,28 @@ async function runSessionEnd(
             },
             prompt_size_avg: Math.round(turns.reduce((s, t) => s + (t.prompt_tokens || 0), 0) / turns.length),
             response_length_avg: Math.round(turns.reduce((s, t) => s + (t.response_length || 0), 0) / turns.length),
+            behavioral: {
+              correction_count: turns.filter(t => t.correction_detected).length,
+              max_disclosure_depth: Math.max(0, ...turns.map(t => t.disclosure_depth || 0)),
+              avg_disclosure_depth: (() => {
+                const disclosed = turns.filter(t => (t.disclosure_depth || 0) > 0);
+                return disclosed.length > 0
+                  ? Math.round(disclosed.reduce((s, t) => s + (t.disclosure_depth || 0), 0) / disclosed.length * 100) / 100
+                  : 0;
+              })(),
+              user_initiation_ratio: Math.round(turns.filter(t => t.user_initiated_topic).length / turns.length * 100) / 100,
+              wit_landed_count: turns.filter(t => t.wit_detected).length,
+              wit_in_first_10_turns: turns.filter(t => t.wit_detected && (t.turn_number || 0) <= 10).length,
+              turns_before_first_disclosure: (() => {
+                const first = turns.find(t => (t.disclosure_depth || 0) > 0);
+                return first ? (first.turn_number || 0) : null;
+              })(),
+              turns_before_first_wit: (() => {
+                const first = turns.find(t => t.wit_detected);
+                return first ? (first.turn_number || 0) : null;
+              })(),
+              session_gap_hours: sessionGapHours,
+            },
           };
         }
       } catch (err) {

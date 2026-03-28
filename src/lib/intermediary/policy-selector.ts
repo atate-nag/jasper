@@ -10,14 +10,54 @@ function getRelationalDepth(ctx: PersonContext): RelationalDepth {
   return 'established';
 }
 
+export interface PolicySelectionContext {
+  careContextActive?: boolean;
+  witClusterActive?: boolean;
+}
+
 export function selectPolicy(
   directive: ResponseDirective,
   personContext: PersonContext,
   policyLibrary: Policy[],
   conversationState?: ConversationState,
+  selectionContext?: PolicySelectionContext,
 ): Policy {
   const depth = getRelationalDepth(personContext);
-  const postureClass = directive.recommendedPostureClass;
+  let postureClass = directive.recommendedPostureClass;
+
+  // Change 3: Early-wit permission — first encounter, light opening → playful register
+  if (
+    depth === 'first_encounter' &&
+    directive.communicativeIntent === 'connecting' &&
+    directive.emotionalValence > 0 &&
+    directive.emotionalArousal < 0.5
+  ) {
+    postureClass = 'playful';
+    console.log('[policy] First encounter, light opening — favouring playful register');
+  }
+
+  // Change 4: Don't force warm-reflective on negative valence without active care context
+  if (
+    postureClass === 'warm_reflective' &&
+    directive.emotionalValence < 0 &&
+    directive.communicativeIntent !== 'distress' &&
+    directive.communicativeIntent !== 'venting' &&
+    !selectionContext?.careContextActive
+  ) {
+    // Let the classifier's original posture stand — mild negativity doesn't need warmth override
+    postureClass = directive.recommendedPostureClass;
+    console.log('[policy] Negative valence but no distress — allowing non-care policy');
+  }
+
+  // Change 5: Wit cluster sustains playful register
+  if (
+    selectionContext?.witClusterActive &&
+    !selectionContext?.careContextActive &&
+    postureClass === 'warm_reflective'
+  ) {
+    postureClass = 'playful';
+    console.log(`[policy] Wit cluster active — sustaining playful register`);
+  }
 
   // 1. Filter by posture class — STRICT, never cross classes
   let candidates = policyLibrary.filter(p => p.posture_class === postureClass);

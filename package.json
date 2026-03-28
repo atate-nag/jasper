@@ -30,6 +30,7 @@
     "@supabase/supabase-js": "^2.100.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
+    "@vercel/analytics": "^2.0.1",
     "ai": "^6.0.137",
     "better-sqlite3": "^12.8.0",
     "cloudflare": "^5.2.0",

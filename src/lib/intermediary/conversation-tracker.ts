@@ -23,6 +23,8 @@ export interface ConversationState {
   entryReason: string | null;
   recentArousal: number[];
   lastArousal: number;
+  witClusterActive: boolean;
+  witClusterTurnsRemaining: number;
 }
 
 export function initialConversationState(): ConversationState {
@@ -39,6 +41,22 @@ export function initialConversationState(): ConversationState {
     entryReason: null,
     recentArousal: [],
     lastArousal: 0,
+    witClusterActive: false,
+    witClusterTurnsRemaining: 0,
+  };
+}
+
+const LAUGHTER_PATTERNS = /\b(ha|haha|hahaha|lol|lmao|rofl|funny|hilarious|made me laugh|crack(?:ing|ed) (?:me )?up|😂|🤣)\b/i;
+
+export function detectLaughter(message: string): boolean {
+  return LAUGHTER_PATTERNS.test(message);
+}
+
+export function activateWitCluster(state: ConversationState): ConversationState {
+  return {
+    ...state,
+    witClusterActive: true,
+    witClusterTurnsRemaining: 4,
   };
 }
 
@@ -129,6 +147,15 @@ export function updateConversationState(
       if (updated.energyTrajectory === 'rising') reasons.push('energy_rising');
       if (updated.metaConversationalAwareness) reasons.push('meta_aware');
       updated.entryReason = reasons.join(' + ');
+    }
+  }
+
+  // Wit cluster decay
+  if (updated.witClusterActive) {
+    updated.witClusterTurnsRemaining = currentState.witClusterTurnsRemaining - 1;
+    if (updated.witClusterTurnsRemaining <= 0) {
+      updated.witClusterActive = false;
+      updated.witClusterTurnsRemaining = 0;
     }
   }
 

@@ -105,6 +105,10 @@ export interface SteeringResult {
     relationalConsumed: boolean;
     careContextInjected: boolean;
     distressOverride: boolean;
+    correctionDetected: boolean;
+    disclosureDepth: number;
+    userInitiatedTopic: boolean;
+    laughterDetected: boolean;
   };
 }
 
