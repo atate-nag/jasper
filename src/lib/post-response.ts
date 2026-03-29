@@ -166,6 +166,9 @@ export async function handlePostResponse(
 
   // 5. Schedule session-end processing on inactivity
   scheduleSessionEnd(userId, conversationId, allMessages);
+
+  // 6. Piggyback: process any stale conversations (non-blocking)
+  processStaleConversations(conversationId).catch(() => {});
 }
 
 /**
@@ -192,6 +195,57 @@ function scheduleSessionEnd(
   }, SESSION_INACTIVITY_MS);
 
   sessionTimers.set(userId, timer);
+}
+
+// Lock to prevent concurrent stale processing
+let staleProcessingActive = false;
+
+/**
+ * Piggyback session-end processing on regular requests.
+ * Finds one stale conversation (inactive >5 min, not ended) and processes it.
+ * Runs at most one at a time to avoid overwhelming the LLM.
+ */
+async function processStaleConversations(currentConversationId: string | null): Promise<void> {
+  if (staleProcessingActive) return;
+  staleProcessingActive = true;
+
+  try {
+    const cutoff = new Date(Date.now() - SESSION_INACTIVITY_MS).toISOString();
+    const { data } = await getSupabaseAdmin()
+      .from('conversations')
+      .select('id, user_id, messages')
+      .is('ended_at', null)
+      .lt('started_at', cutoff)
+      .neq('id', currentConversationId || '')
+      .order('started_at', { ascending: true })
+      .limit(1);
+
+    if (!data || data.length === 0) return;
+
+    const conv = data[0];
+    const messages = conv.messages as Message[] | null;
+    if (!messages || messages.length < 4) {
+      // Too short — just mark ended
+      await getSupabaseAdmin()
+        .from('conversations')
+        .update({ ended_at: new Date().toISOString() })
+        .eq('id', conv.id);
+      return;
+    }
+
+    // Check last message timestamp is actually stale
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.timestamp && new Date(lastMsg.timestamp).getTime() > Date.now() - SESSION_INACTIVITY_MS) {
+      return; // Still active
+    }
+
+    console.log(`[piggyback-session-end] Processing conv ${conv.id.slice(0, 8)} for user ${conv.user_id.slice(0, 8)}`);
+    await runSessionEnd(conv.user_id, conv.id, messages);
+  } catch (err) {
+    console.error('[piggyback-session-end] Error:', err);
+  } finally {
+    staleProcessingActive = false;
+  }
 }
 
 /**
