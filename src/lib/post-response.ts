@@ -198,7 +198,7 @@ function scheduleSessionEnd(
  * Run the same session-end pipeline as CLI /quit:
  * summarise, classify, extract segments, calibrate, metacognition.
  */
-async function runSessionEnd(
+export async function runSessionEnd(
   userId: string,
   conversationId: string | null,
   messages: Message[],

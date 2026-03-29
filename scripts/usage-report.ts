@@ -30,23 +30,10 @@ async function main(): Promise<void> {
   }
 
   const { data } = await query;
-  const withMessages = (data || []).filter((c: Record<string, unknown>) =>
+  // Include all conversations with messages
+  const unique = (data || []).filter((c: Record<string, unknown>) =>
     Array.isArray(c.messages) && (c.messages as unknown[]).length > 0
   );
-
-  // Deduplicate (keep longest per first-message)
-  const deduped = new Map<string, Record<string, unknown>>();
-  for (const c of withMessages) {
-    const msgs = c.messages as Array<{ role: string; content: string }>;
-    const firstUser = msgs.find(m => m.role === 'user')?.content?.slice(0, 50) || '';
-    const key = `${c.user_id}|${firstUser}`;
-    const existing = deduped.get(key);
-    if (!existing || msgs.length > (existing.messages as unknown[]).length) {
-      deduped.set(key, c);
-    }
-  }
-
-  const unique = [...deduped.values()];
 
   // Per-user stats
   const userStats: Record<string, { sessions: number; messages: number; firstSeen: string; lastSeen: string }> = {};
