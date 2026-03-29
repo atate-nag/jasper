@@ -63,7 +63,7 @@ export async function GET(req: Request): Promise<Response> {
       const messages = conv.messages as Message[];
       try {
         console.log(`[cron/session-end] Processing conv ${conv.id.slice(0, 8)} for user ${conv.user_id.slice(0, 8)} (${messages.length} messages)`);
-        await runSessionEnd(conv.user_id, conv.id, messages);
+        await runSessionEnd(conv.user_id, conv.id, messages, 'cron');
         processed++;
         results.push({ conversationId: conv.id.slice(0, 8), userId: conv.user_id.slice(0, 8), status: 'ok' });
       } catch (err) {

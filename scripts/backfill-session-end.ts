@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     console.log(`\n[${i + 1}/${toProcess.length}] Conv ${conv.id.slice(0, 8)} | user=${conv.user_id.slice(0, 8)} | ${messages.length} messages | ${conv.started_at?.slice(0, 16)}`);
 
     try {
-      await runSessionEnd(conv.user_id, conv.id, messages);
+      await runSessionEnd(conv.user_id, conv.id, messages, 'catchup');
       processed++;
       console.log(`  ✓ Done`);
     } catch (err) {

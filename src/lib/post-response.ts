@@ -127,6 +127,7 @@ export async function handlePostResponse(
       correction_detected: a?.correctionDetected || false,
       disclosure_depth: a?.disclosureDepth || 0,
       user_initiated_topic: a?.userInitiatedTopic || false,
+      identity_tokens: a?.promptComponents?.['identity'] || null,
     });
   } catch (err) {
     console.error('[post-response] Turn log failed:', err);
@@ -240,7 +241,7 @@ async function processStaleConversations(currentConversationId: string | null): 
     }
 
     console.log(`[piggyback-session-end] Processing conv ${conv.id.slice(0, 8)} for user ${conv.user_id.slice(0, 8)}`);
-    await runSessionEnd(conv.user_id, conv.id, messages);
+    await runSessionEnd(conv.user_id, conv.id, messages, 'catchup');
   } catch (err) {
     console.error('[piggyback-session-end] Error:', err);
   } finally {
@@ -256,34 +257,68 @@ export async function runSessionEnd(
   userId: string,
   conversationId: string | null,
   messages: Message[],
+  endTrigger: 'timeout' | 'catchup' | 'cron' = 'timeout',
 ): Promise<void> {
   if (messages.length < 4) {
-    // Too short for meaningful session-end processing
     activeConversations.delete(userId);
     return;
   }
 
-  console.log(`[session-end] Processing session for user ${userId.slice(0, 8)}... (${messages.length} messages, ${SESSION_INACTIVITY_MS / 1000}s inactivity)`);
+  const pipelineStart = Date.now();
+  console.log(`[session-end] Processing session for user ${userId.slice(0, 8)}... (${messages.length} messages, trigger=${endTrigger})`);
+
+  // Health tracking
+  const health: Record<string, unknown> = {
+    conversation_id: conversationId,
+    user_id: userId,
+    turn_count: messages.filter(m => m.role === 'user').length,
+    end_trigger: endTrigger,
+    errors: [] as Array<{ step: string; error: string }>,
+    summary_generated: false,
+    segments_extracted: false,
+    segments_count: 0,
+    segments_inserted: false,
+    calibration_updated: false,
+    metacognition_ran: false,
+    metacognition_patterns: 0,
+    profile_updated: false,
+  };
+  const errors = health.errors as Array<{ step: string; error: string }>;
+
+  let summary = '';
 
   try {
-    // 1. Summarise — with profile and previous summaries for context
-    const { summariseConversation } = await import('@/lib/backbone/summarise');
-    const { getProfile } = await import('@/lib/backbone/profile');
-    const { getRecentConversations } = await import('@/lib/backbone/conversations');
-    const userProfile = await getProfile(userId);
-    const recentConvos = await getRecentConversations(userId, 5);
-    const prevSummaries = recentConvos.filter(c => c.summary).map(c => c.summary!).slice(-3);
-    const summary = await summariseConversation(messages, userProfile, prevSummaries);
-    console.log(`[session-end] Summary: ${summary.slice(0, 120)}...`);
+    // 1. Summarise
+    try {
+      const { summariseConversation } = await import('@/lib/backbone/summarise');
+      const { getProfile } = await import('@/lib/backbone/profile');
+      const { getRecentConversations } = await import('@/lib/backbone/conversations');
+      const userProfile = await getProfile(userId);
+      const recentConvos = await getRecentConversations(userId, 5);
+      const prevSummaries = recentConvos.filter(c => c.summary).map(c => c.summary!).slice(-3);
+      summary = await summariseConversation(messages, userProfile, prevSummaries);
+      health.summary_generated = true;
+      health.summary_model = 'claude-opus-4-6';
+      console.log(`[session-end] Summary: ${summary.slice(0, 120)}...`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push({ step: 'summary', error: msg });
+      console.error('[session-end] Summary failed:', msg);
+    }
 
-    // 2. Extract segments for deep recall
+    // 2. Extract segments
     if (conversationId) {
       try {
         const { extractSegments } = await import('@/lib/backbone/recall');
-        await extractSegments(conversationId, userId, messages, new Date());
-        console.log('[session-end] Segments extracted');
+        const result = await extractSegments(conversationId, userId, messages, new Date());
+        health.segments_extracted = true;
+        health.segments_count = Array.isArray(result) ? result.length : 0;
+        health.segments_inserted = true;
+        console.log(`[session-end] Segments extracted: ${health.segments_count}`);
       } catch (err) {
-        console.error('[session-end] Segment extraction failed:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ step: 'segments', error: msg });
+        console.error('[session-end] Segment extraction failed:', msg);
       }
     }
 
@@ -297,20 +332,27 @@ export async function runSessionEnd(
       const signals = extractSessionSignals(messages);
       const updated = updateCalibration(cal as ReturnType<typeof defaultCalibration>, signals);
       await saveCalibration(userId, updated);
+      health.calibration_updated = true;
       console.log(`[session-end] Calibration updated: challenge=${updated.challengeCeiling.toFixed(2)} humour=${updated.humourTolerance.toFixed(2)}`);
     } catch (err) {
-      console.error('[session-end] Calibration failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push({ step: 'calibration', error: msg });
+      console.error('[session-end] Calibration failed:', msg);
     }
 
     // 4. Metacognition
     try {
       const { runSessionMetacognition } = await import('@/lib/backbone/metacognition');
       const obs = await runSessionMetacognition(userId, conversationId || 'web', messages);
+      health.metacognition_ran = true;
       if (obs) {
+        health.metacognition_patterns = obs.patternsNoted.length;
         console.log(`[session-end] Metacognition: ${obs.patternsNoted.length} pattern(s) noted`);
       }
     } catch (err) {
-      console.error('[session-end] Metacognition failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push({ step: 'metacognition', error: msg });
+      console.error('[session-end] Metacognition failed:', msg);
     }
 
     // 5. Compute session analytics from turn logs
@@ -410,14 +452,40 @@ export async function runSessionEnd(
           })
           .eq('id', conversationId);
       } catch (err) {
-        console.error('[session-end] Failed to end conversation:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ step: 'end_conversation', error: msg });
+        console.error('[session-end] Failed to end conversation:', msg);
       }
     }
   } catch (err) {
-    console.error('[session-end] Pipeline failed:', err);
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push({ step: 'pipeline', error: msg });
+    console.error('[session-end] Pipeline failed:', msg);
+  }
+
+  // Compute session duration
+  const firstTs = messages[0]?.timestamp;
+  const lastTs = messages[messages.length - 1]?.timestamp;
+  if (firstTs && lastTs) {
+    health.session_duration_seconds = Math.round((new Date(lastTs).getTime() - new Date(firstTs).getTime()) / 1000);
+  }
+
+  // Write health record
+  try {
+    await getSupabaseAdmin().from('session_health').insert(health);
+  } catch (err) {
+    console.error('[session-health] Failed to write health record:', err);
+  }
+
+  // Log health summary
+  const bools = ['summary_generated', 'segments_extracted', 'segments_inserted', 'calibration_updated', 'metacognition_ran'] as const;
+  const healthLine = bools.map(k => `${k.replace(/_/g, '-').replace('generated', '').replace('extracted', '').replace('updated', '').replace('_ran', '').replace(/-+$/, '')}:${health[k] ? '✓' : '✗'}`).join(' | ');
+  console.log(`[session-health] ${healthLine}${errors.length > 0 ? ` | ERRORS: ${errors.length}` : ''}`);
+  if (errors.length > 0) {
+    console.log(`[session-health] errors: ${JSON.stringify(errors)}`);
   }
 
   // Clear the active conversation so a new one is created next time
   activeConversations.delete(userId);
-  console.log(`[session-end] Done for user ${userId.slice(0, 8)}`);
+  console.log(`[session-end] Done for user ${userId.slice(0, 8)} (${Date.now() - pipelineStart}ms)`);
 }
