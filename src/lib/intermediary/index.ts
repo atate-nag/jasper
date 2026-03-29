@@ -20,6 +20,62 @@ import { fireRelationalConnectionCheck, consumePendingConnection, type Relationa
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
 
+/**
+ * Detect if the user's message tone contradicts distress.
+ * If the user is asking questions, giving instructions, using humour,
+ * or being directive, high arousal + negative valence reflects engaged
+ * self-examination — not emotional crisis.
+ */
+function hasActiveAgencyTone(message: string): boolean {
+  const lc = message.toLowerCase();
+
+  // Directive/instructional: telling Jasper what to do
+  // "stop" must be followed by a gerund (stop asking, stop doing) to avoid
+  // matching "I can't stop thinking about it"
+  // "stop" as directive must be at start or after a period/comma (imperative)
+  // — not "I can't stop" which is self-description
+  const directive = /\b(ask me|tell me|give me|explain|let'?s|move on|go deeper|focus on|what (should|do|can)|how (do|should|can))\b/i.test(message)
+    || /(?:^|[.,!]\s*)stop \w+ing\b/i.test(message);
+
+  // Question-asking: the user is driving the exchange
+  // Includes trailing ? and rhetorical patterns like "are you", "don't you"
+  const questioning = /\?\s*$/.test(message.trim())
+    || /\b(aren'?t you|are you|don'?t you|isn'?t it|right)\s*$/i.test(message.trim());
+
+  // Humour markers
+  const humour = /\b(ha|haha|lol|lmao|god damn|fair enough|touche|touché|funny|hilarious)\b/i.test(lc)
+    || /[😂🤣😅😄]/.test(message);
+
+  // Relational feedback about Jasper (not about themselves)
+  const aboutJasper = messageReferencesJasper(message);
+
+  // Short dismissive/redirecting messages ("move on", "next", "ok whatever")
+  const redirecting = message.split(/\s+/).length <= 6 && /\b(move on|next|anyway|whatever|fine|ok)\b/i.test(lc);
+
+  return directive || questioning || humour || aboutJasper || redirecting;
+}
+
+/**
+ * Central distress detection. Returns true only when the user appears
+ * genuinely distressed — not just engaged with negative-valence content.
+ */
+export function detectDistress(
+  directive: ResponseDirective,
+  userMessage: string,
+): boolean {
+  // Explicit distress intent from classifier — trust it
+  if (directive.communicativeIntent === 'distress') return true;
+
+  // Emotional signal threshold
+  const emotionalSignal = directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4;
+  if (!emotionalSignal) return false;
+
+  // Gate: if the user's tone shows active agency, it's not distress
+  if (hasActiveAgencyTone(userMessage)) return false;
+
+  return true;
+}
+
 export function messageReferencesJasper(message: string): boolean {
   // Detect when the user is commenting on Jasper's behaviour — corrections,
   // complaints, or feedback about how Jasper responded. Must NOT match normal
@@ -35,15 +91,12 @@ function determineModelConfig(directive: ResponseDirective, ctx: PersonContext, 
   // Recall-triggered messages always get at least standard tier
   const recallBoost = directive.recallTriggered && directive.recallTier !== 'none';
 
-  // Distress detection — explicit intent only, OR strong emotional signal
-  // (not triggered by practical frustration like spreadsheet problems)
-  const isExplicitDistress = directive.communicativeIntent === 'distress';
-  const isEmotionalDistress = directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4;
-  const isDistressed = isExplicitDistress || isEmotionalDistress;
+  // Distress detection — central function with active-agency gate
+  const isDistressed = detectDistress(directive, userMessage || '');
 
   if (isDistressed) {
     tier = 'deep';
-    console.log(`[model] Distress detected (${isExplicitDistress ? 'explicit' : 'emotional signal'}) — routing to Opus`);
+    console.log(`[model] Distress detected — routing to Opus`);
   } else if (directive.communicativeIntent === 'connecting' && !recallBoost) {
     tier = 'ambient';
   } else if (directive.communicativeIntent === 'requesting_input' && directive.emotionalArousal > 0.7) {
@@ -206,6 +259,7 @@ function buildPromptComponents(
   pendingDepth?: PendingDepth | null,
   pendingConnection?: { thread: string; connection: string } | null,
   sessionStartRecall?: string | null,
+  userMessage?: string,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
@@ -244,8 +298,7 @@ function buildPromptComponents(
   }
 
   // Priority 87: Care context — wider frame for genuinely distressed users
-  const isDistressedForCare = directive.communicativeIntent === 'distress' ||
-    (directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4);
+  const isDistressedForCare = detectDistress(directive, userMessage || '');
   if (isDistressedForCare) {
     const careContext = buildCareContext(personContext.profile);
     if (careContext) {
@@ -686,11 +739,10 @@ export async function steer(
   }
 
   // 4. Load and select policy
-  const isDistressedForCare = directive.communicativeIntent === 'distress' ||
-    (directive.emotionalArousal > 0.7 && directive.emotionalValence < -0.4);
+  const isCareActive = detectDistress(directive, userMessage);
   const policies = loadPolicies();
   const policy = selectPolicy(directive, enrichedPersonContext, policies, witConversationState, {
-    careContextActive: isDistressedForCare,
+    careContextActive: isCareActive,
     witClusterActive: witConversationState.witClusterActive,
   });
 
@@ -735,7 +787,7 @@ export async function steer(
   }
 
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, pendingConnection, sessionStartRecall);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, pendingConnection, sessionStartRecall, userMessage);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message
@@ -798,9 +850,8 @@ export async function steer(
   const recallSegs = enrichedPersonContext.recalledSegments || [];
   const recallTopSim = recallSegs.length > 0 ? Math.max(...recallSegs.map(() => 0.5)) : null; // approximate
 
-  // Distress detection
-  const isDistressedForAnalytics = directive.communicativeIntent === 'distress' ||
-    (directive.emotionalArousal > 0.5 && directive.emotionalValence < -0.2);
+  // Distress detection (for analytics — same gate as routing)
+  const isDistressedForAnalytics = detectDistress(directive, userMessage);
 
   // Behavioural analytics
   const isCorrection = messageReferencesJasper(userMessage);
