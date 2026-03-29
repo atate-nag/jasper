@@ -1,6 +1,25 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+
+// Web Speech API types — not yet in lib.dom for all browsers
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
 
 const WHISPER_HALLUCINATIONS = [
   /thanks for watching/i,
@@ -24,6 +43,15 @@ function isValidSpeech(transcription: string): boolean {
   return true;
 }
 
+// Check if the browser supports the Web Speech API
+function getSpeechRecognition(): (new () => SpeechRecognition) | null {
+  if (typeof window === 'undefined') return null;
+  return (
+    (window as unknown as Record<string, unknown>).SpeechRecognition ||
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+  ) as (new () => SpeechRecognition) | null;
+}
+
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
 }
@@ -32,10 +60,94 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const [useNative, setUseNative] = useState(false);
+
+  // Whisper fallback refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  const startRecording = useCallback(async () => {
+  // Native speech recognition refs
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const nativeResultRef = useRef<string>('');
+
+  // Detect native speech support on mount
+  useEffect(() => {
+    const SpeechRec = getSpeechRecognition();
+    if (SpeechRec) {
+      setUseNative(true);
+      console.log('[voice] Using native SpeechRecognition');
+    } else {
+      console.log('[voice] Native SpeechRecognition not available — using Whisper');
+    }
+  }, []);
+
+  // ── Native SpeechRecognition (instant, no network) ──────────────
+
+  const startNativeRecording = useCallback(() => {
+    const SpeechRec = getSpeechRecognition();
+    if (!SpeechRec) return;
+
+    const recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-GB';
+    recognitionRef.current = recognition;
+    nativeResultRef.current = '';
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+      nativeResultRef.current = finalTranscript || interimTranscript;
+      // Show interim results as status
+      if (interimTranscript && !finalTranscript) {
+        setStatusText(interimTranscript.slice(0, 60) + (interimTranscript.length > 60 ? '...' : ''));
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('[voice] Native recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        setStatusText('No speech detected — try again');
+        setTimeout(() => setStatusText(null), 2000);
+      }
+    };
+
+    recognition.onend = () => {
+      const text = nativeResultRef.current.trim();
+      setStatusText(null);
+      if (text && isValidSpeech(text)) {
+        onTranscript(text);
+      } else if (text) {
+        // Had text but it was filtered
+        setStatusText('Couldn\u2019t catch that — try again');
+        setTimeout(() => setStatusText(null), 2000);
+      }
+      setIsRecording(false);
+    };
+
+    recognition.start();
+    setIsRecording(true);
+    setStatusText(null);
+  }, [onTranscript]);
+
+  const stopNativeRecording = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      // onend handler will fire and process the result
+    }
+  }, []);
+
+  // ── Whisper fallback (for browsers without SpeechRecognition) ───
+
+  const startWhisperRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -50,7 +162,6 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         stream.getTracks().forEach(t => t.stop());
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         if (audioBlob.size < 5000) {
-          // Too short — Whisper returns 500 on tiny files
           setStatusText('Too short — try again');
           setTimeout(() => setStatusText(null), 2000);
           return;
@@ -60,7 +171,7 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
         setStatusText(null);
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+          const timeout = setTimeout(() => controller.abort(), 15000);
 
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
@@ -106,12 +217,30 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
     }
   }, [onTranscript]);
 
-  const stopRecording = useCallback(() => {
+  const stopWhisperRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   }, []);
+
+  // ── Unified start/stop ──────────────────────────────────────────
+
+  const startRecording = useCallback(() => {
+    if (useNative) {
+      startNativeRecording();
+    } else {
+      startWhisperRecording();
+    }
+  }, [useNative, startNativeRecording, startWhisperRecording]);
+
+  const stopRecording = useCallback(() => {
+    if (useNative) {
+      stopNativeRecording();
+    } else {
+      stopWhisperRecording();
+    }
+  }, [useNative, stopNativeRecording, stopWhisperRecording]);
 
   return (
     <div className="px-6 py-3 border-t border-gray-800 flex items-center gap-3">
