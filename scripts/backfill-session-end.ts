@@ -14,11 +14,7 @@ const sb = createClient(
 
 const dryRun = process.argv.includes('--dry-run');
 
-interface Message {
-  role: string;
-  content: string;
-  timestamp?: string;
-}
+import type { Message } from '../src/types/message';
 
 async function main(): Promise<void> {
   // Get all unended conversations with enough messages

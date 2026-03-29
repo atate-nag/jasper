@@ -273,11 +273,35 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
               <p className="text-gray-600 text-lg">Say something.</p>
             </div>
           )}
-          {/* Voice/opener messages first, then regular chat messages */}
-          {voiceMessages.map((m) => {
-            if (!m.text) return null;
-            return (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          {/* All messages merged chronologically */}
+          {(() => {
+            const merged: Array<{ key: string; role: string; text: string; ts: number }> = [];
+
+            // Voice/opener messages — use timestamp from ID or creation order
+            voiceMessages.forEach((m) => {
+              if (!m.text) return;
+              // Extract timestamp from ID format: voice-user-{timestamp} or clone-opener
+              const tsMatch = m.id.match(/(\d{13,})/);
+              const ts = tsMatch ? parseInt(tsMatch[1]) : 0; // opener gets 0 = always first
+              merged.push({ key: m.id, role: m.role, text: m.text, ts });
+            });
+
+            // Regular chat messages — use index-based timestamps starting from
+            // a baseline that places them after the opener but interleaves with voice
+            const chatBaseline = 1; // after opener (ts=0)
+            messages.forEach((m, i) => {
+              const text = getTextContent(m);
+              if (!text) return;
+              merged.push({ key: m.id, role: m.role, text, ts: chatBaseline + i });
+            });
+
+            // Sort: opener first (ts=0), then all others by timestamp.
+            // Chat messages (ts=1,2,3...) come before voice messages (ts=Date.now())
+            // which is correct — text messages were sent first, voice messages later.
+            merged.sort((a, b) => a.ts - b.ts);
+
+            return merged.map((m) => (
+              <div key={m.key} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     m.role === 'user'
@@ -288,26 +312,8 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
                   <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
                 </div>
               </div>
-            );
-          })}
-          {/* Regular chat messages */}
-          {messages.map((m) => {
-            const text = getTextContent(m);
-            if (!text) return null;
-            return (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    m.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-100'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
-                </div>
-              </div>
-            );
-          })}
+            ));
+          })()}
           {(isLoading || voiceStreaming) && (
             <div className="flex justify-start">
               <div className="bg-gray-800 rounded-2xl px-4 py-3">

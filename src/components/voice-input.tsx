@@ -31,6 +31,7 @@ interface VoiceInputProps {
 export function VoiceInput({ onTranscript }: VoiceInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [statusText, setStatusText] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -48,26 +49,51 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        if (audioBlob.size < 1000) return; // too short
+        if (audioBlob.size < 5000) {
+          // Too short — Whisper returns 500 on tiny files
+          setStatusText('Too short — try again');
+          setTimeout(() => setStatusText(null), 2000);
+          return;
+        }
 
         setIsTranscribing(true);
+        setStatusText(null);
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
 
           const res = await fetch('/api/voice/transcribe', {
             method: 'POST',
             body: formData,
+            signal: controller.signal,
           });
+          clearTimeout(timeout);
 
           if (res.ok) {
             const { text } = await res.json();
             if (text && isValidSpeech(text)) {
               onTranscript(text.trim());
+            } else {
+              setStatusText('Couldn\u2019t catch that — try again');
+              setTimeout(() => setStatusText(null), 2000);
             }
+          } else {
+            console.error('Transcription error:', res.status);
+            setStatusText('Transcription failed — try again');
+            setTimeout(() => setStatusText(null), 2000);
           }
         } catch (err) {
-          console.error('Transcription failed:', err);
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            console.error('Transcription timed out');
+            setStatusText('Timed out — try again');
+          } else {
+            console.error('Transcription failed:', err);
+            setStatusText('Transcription failed — try again');
+          }
+          setTimeout(() => setStatusText(null), 2000);
         } finally {
           setIsTranscribing(false);
         }
@@ -105,8 +131,8 @@ export function VoiceInput({ onTranscript }: VoiceInputProps) {
       >
         🎤
       </button>
-      <span className="text-sm text-gray-500">
-        {isRecording ? 'Recording... release to send' : isTranscribing ? 'Transcribing...' : 'Hold to speak'}
+      <span className={`text-sm ${statusText ? 'text-yellow-500' : 'text-gray-500'}`}>
+        {statusText || (isRecording ? 'Recording... release to send' : isTranscribing ? 'Transcribing...' : 'Hold to speak')}
       </span>
     </div>
   );
