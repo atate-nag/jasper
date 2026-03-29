@@ -33,8 +33,9 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const text = await response.text();
-    console.log(`[transcribe] Result: "${text.trim().slice(0, 100)}"`);
-    return Response.json({ text: text.trim() });
+    const trimmed = text.trim();
+    console.log(`[transcribe] Result (${trimmed.length} chars): "${trimmed.slice(0, 200)}"`);
+    return Response.json({ text: trimmed });
   } catch (err) {
     console.error('[transcribe] Unhandled error:', err);
     return Response.json({ error: String(err) }, { status: 500 });

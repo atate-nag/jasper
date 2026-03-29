@@ -148,13 +148,19 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         { role: 'user', parts: [{ type: 'text', text: userText }] },
       ];
 
+      const voiceController = new AbortController();
+      const voiceTimeout = setTimeout(() => voiceController.abort(), 55000); // 55s (server max is 60s)
+
       const res = await fetch('/api/chat/voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: allMessages }),
+        signal: voiceController.signal,
       });
+      clearTimeout(voiceTimeout);
 
       if (!res.ok || !res.body) {
+        console.error('[voice] Response not OK:', res.status);
         setVoiceStreaming(false);
         return;
       }
@@ -190,6 +196,9 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
             if (parsed.type === 'audio') {
               audioQueueRef.current?.enqueue(parsed.index, parsed.audio);
             }
+            if (parsed.type === 'error') {
+              console.error('[voice] Server stream error:', parsed.error);
+            }
           } catch { /* ignore parse errors */ }
         }
       }
@@ -197,6 +206,16 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
       console.error('[voice] Stream error:', err);
     } finally {
       setVoiceStreaming(false);
+      // If the assistant message is still empty, the stream failed silently
+      setVoiceMessages(prev => {
+        const assistantMsg = prev.find(m => m.id === assistantMsgId);
+        if (assistantMsg && !assistantMsg.text) {
+          // Remove the empty bubble and show feedback
+          console.error('[voice] Stream produced no text — removing empty assistant bubble');
+          return prev.filter(m => m.id !== assistantMsgId);
+        }
+        return prev;
+      });
     }
   }
 
