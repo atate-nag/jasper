@@ -28,6 +28,7 @@
     "@ricky0123/vad-react": "^0.0.36",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
+    "@tailwindcss/typography": "^0.5.19",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^2.0.1",
@@ -46,6 +47,7 @@
     "pg": "^8.20.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
     "redis": "^5.11.0",
     "together-ai": "^0.38.0"
   },

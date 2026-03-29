@@ -3,6 +3,7 @@
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useRef, useEffect, useState, useMemo, useCallback, type FormEvent } from 'react';
+import Markdown from 'react-markdown';
 import { VoiceInput } from './voice-input';
 import { AudioPlaybackQueue } from './audio-playback-queue';
 
@@ -328,7 +329,13 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
                       : 'bg-gray-800 text-gray-100'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                  {m.role === 'assistant' ? (
+                    <div className="prose prose-invert prose-sm max-w-none leading-relaxed">
+                      <Markdown>{m.text}</Markdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                  )}
                 </div>
               </div>
             ));
