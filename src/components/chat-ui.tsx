@@ -319,7 +319,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
                         }`}
                       >
                         {m.role === 'assistant' ? (
-                          <div className="prose prose-invert prose-sm max-w-none leading-relaxed">
+                          <div className="prose prose-invert prose-base max-w-none leading-relaxed">
                             <Markdown>{m.content}</Markdown>
                           </div>
                         ) : (
@@ -374,7 +374,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
                   }`}
                 >
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-invert prose-sm max-w-none leading-relaxed">
+                    <div className="prose prose-invert prose-base max-w-none leading-relaxed">
                       <Markdown>{m.text}</Markdown>
                     </div>
                   ) : (
