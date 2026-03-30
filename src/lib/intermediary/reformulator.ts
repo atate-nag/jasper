@@ -28,6 +28,20 @@ export function reformulate(
     parts.push(`[PERSON CONTEXT — use to inform your response, do not repeat verbatim]\n${contextParts.join('\n')}`);
   }
 
+  // Relationship guardrail — inject into the message itself when discussing absent partners
+  const relationshipSignals = /\b(partner|wife|husband|boyfriend|girlfriend|ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family)\b/i;
+  if (relationshipSignals.test(userMessage)) {
+    parts.push(`[RELATIONSHIP SAFETY — THIS OVERRIDES YOUR RESPONSE APPROACH]
+This message is about someone who is not present. In your response:
+1. Do NOT analyse, diagnose, or characterise the absent person
+2. Do NOT say what they are "really" doing or frame them as the problem
+3. Do NOT lead toward ending the relationship, even implicitly
+4. DO focus on what THIS person feels, needs, and wants
+5. DO ask "what do you think she/he might be experiencing?"
+6. DO frame difficulties as dynamics between two people
+Reflect their words back without interpreting the absent person's motives.`);
+  }
+
   // Add policy framing
   parts.push(`[RESPONSE APPROACH]\n${policy.response_structure.opening_move} → ${policy.response_structure.development_approach} → ${policy.response_structure.closing_move}`);
 
