@@ -317,7 +317,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         {/* Messages */}
         <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 ${observeMode ? 'w-2/3' : 'w-full'}`}>
           {/* Previous conversation history */}
-          {previousConversations.length > 0 && messages.length === 0 && voiceMessages.length <= 1 && (
+          {previousConversations.length > 0 && (
             <div className="space-y-6 pb-4 mb-4 border-b border-gray-700">
               {previousConversations.map((conv, ci) => (
                 <div key={`conv-${ci}`} className="space-y-3">
