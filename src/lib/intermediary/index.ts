@@ -311,6 +311,36 @@ function buildPromptComponents(
     }
   }
 
+  // Priority 96: Relationship guardrail — injected when conversation involves absent partner
+  if (userMessage) {
+    const relationshipSignals = /\b(partner|wife|husband|boyfriend|girlfriend|ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I)\b/i;
+    const historyHasRelationship = sessionHistory.slice(-6).some(m =>
+      m.role === 'user' && relationshipSignals.test(m.content)
+    );
+    if (relationshipSignals.test(userMessage) || historyHasRelationship) {
+      components.push({
+        priority: 96,
+        content: `ACTIVE REMINDER — RELATIONSHIP CONVERSATION:
+You are hearing ONE SIDE of this relationship. The absent person cannot speak.
+
+DO NOT:
+- Analyse the absent person's motives, character, or patterns
+- List what the absent person did wrong
+- Frame the absent person as "the problem"
+- Lead toward ending the relationship
+- Say "that's not a conversation, that's a defensive loop" or equivalent judgments
+
+DO:
+- Help this person understand their OWN feelings and needs
+- Hold space for the absent person's perspective: "What do you think they might be experiencing?"
+- Frame difficulties as dynamics between two people
+- Help them become a better participant in the relationship, not a better analyst of why it's failing`,
+        label: 'relationship_guardrail',
+        tokenEstimate: 120,
+      });
+    }
+  }
+
   // Priority 55: Session-start recall
   if (sessionStartRecall) {
     components.push({
