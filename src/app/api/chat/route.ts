@@ -8,6 +8,7 @@ import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { setObserveData } from '@/app/api/observe/route';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
+import { logUsage } from '@/lib/usage';
 
 export const maxDuration = 60;
 
@@ -109,11 +110,17 @@ export async function POST(req: Request): Promise<Response> {
       messages: llmMessages,
       temperature: steering.modelConfig.temperature,
       maxOutputTokens: steering.modelConfig.maxTokens,
-      onFinish: async ({ text, finishReason }) => {
+      onFinish: async ({ text, finishReason, usage }) => {
         const responseLatencyMs = Date.now() - responseStart;
         if (finishReason === 'length') {
           console.warn(`[chat] Response truncated at token limit (${steering.modelConfig.maxTokens} tokens)`);
         }
+        logUsage({
+          inputTokens: usage.inputTokens || 0,
+          outputTokens: usage.outputTokens || 0,
+          model: steering.modelConfig.model,
+          provider: steering.modelConfig.provider,
+        }, 'chat', user.id, conversationId, responseLatencyMs);
         handlePostResponse(
           user.id, conversationId, sessionHistory,
           lastUserMessage, text, steering, responseLatencyMs, userName,

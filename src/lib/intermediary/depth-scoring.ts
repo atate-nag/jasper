@@ -1,6 +1,7 @@
 import type { Message } from '@/types/message';
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
+import { logUsage } from '@/lib/usage';
 
 const DEPTH_SCORING_PROMPT = `You are evaluating a conversational message for latent depth.
 Your job is not to respond to the message. Your job is to
@@ -95,12 +96,14 @@ export async function scoreDepth(
   try {
     console.log(`[depth-scoring] Calling Opus | context: ~${contextTokens} tokens | ${sessionHistory.length} turns`);
     const routing = getModelRouting();
-    const text = await callModel(
+    const result = await callModel(
       routing.depthScoring,
       '',
       [{ role: 'user', content: prompt }],
     );
+    logUsage(result.usage, 'depth_scoring');
 
+    const text = result.text;
     console.log('[depth-scoring] Raw output:', text.slice(0, 200));
 
     const cleaned = text

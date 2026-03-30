@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { logUsage } from '@/lib/usage';
 
 export const maxDuration = 30;
 
@@ -35,6 +36,16 @@ export async function POST(req: Request): Promise<Response> {
     const text = await response.text();
     const trimmed = text.trim();
     console.log(`[transcribe] Result (${trimmed.length} chars): "${trimmed.slice(0, 200)}"`);
+
+    // Whisper pricing: $0.006/min. Estimate duration from file size (~16KB/s for webm audio)
+    const estimatedSeconds = Math.max(1, audioFile.size / 16000);
+    logUsage({
+      inputTokens: Math.round(estimatedSeconds), // store seconds as "tokens" for cost calc
+      outputTokens: 0,
+      model: 'whisper-1',
+      provider: 'openai',
+    }, 'transcribe', user.id);
+
     return Response.json({ text: trimmed });
   } catch (err) {
     console.error('[transcribe] Unhandled error:', err);

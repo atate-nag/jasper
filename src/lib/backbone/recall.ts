@@ -149,13 +149,15 @@ async function extractSegmentsWithModel(prompt: string): Promise<SegmentExtracti
     const { getModelRouting: getRouting } = await import('@/lib/config/models');
     const routing = getRouting();
 
-    const text = await callModelFn(
+    const { logUsage } = await import('@/lib/usage');
+    const modelResult = await callModelFn(
       routing.segmentExtraction,
       '',
       [{ role: 'user', content: prompt }],
     );
+    logUsage(modelResult.usage, 'segments');
 
-    const raw = text
+    const raw = modelResult.text
       .replace(/^```(?:json)?\s*\n?/i, '')
       .replace(/\n?```\s*$/i, '')
       .trim();

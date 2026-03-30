@@ -6,6 +6,7 @@ import type { RecallRequest } from '@/lib/backbone/recall';
 import { getSupabase } from '@/lib/supabase';
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
+import { logUsage } from '@/lib/usage';
 
 function buildProactiveRecallQuery(profile: Record<string, unknown>): string {
   const parts: string[] = [];
@@ -160,17 +161,18 @@ Keep it short. Keep it warm. Reference something real. No questions about how th
 
   try {
     const routing = getModelRouting();
-    const response = await callModel(
+    const result = await callModel(
       routing.opener,
       '',
       [{ role: 'user', content: prompt }],
     );
+    logUsage(result.usage, 'opener', userId);
 
-    if (!response || response.length > 200) {
+    if (!result.text || result.text.length > 200) {
       return `Hey ${name}.`;
     }
 
-    return response.trim();
+    return result.text.trim();
   } catch (err) {
     console.error('[opener] Failed to generate returning opener:', err);
     return `Hey ${name}.`;

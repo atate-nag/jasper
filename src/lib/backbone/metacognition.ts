@@ -218,7 +218,8 @@ export async function runSessionMetacognition(
       const routing = getModelRouting();
 
       const conversationText = messages.map((m, i) => `[turn ${i}] [${m.role}]: ${m.content}`).join('\n');
-      const warmthResult = await callModel(
+      const { logUsage } = await import('@/lib/usage');
+      const warmthModelResult = await callModel(
         routing.classification, // Haiku
         '',
         [{ role: 'user', content: `Review this conversation. Answer two questions:
@@ -235,8 +236,9 @@ Return raw JSON only.
 Conversation:
 ${conversationText}` }],
       );
+      logUsage(warmthModelResult.usage, 'metacognition', userId);
 
-      const cleaned = warmthResult.replace(/^\s*```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
+      const cleaned = warmthModelResult.text.replace(/^\s*```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '').trim();
       const parsed = JSON.parse(cleaned);
 
       if (parsed.emotional_content && !parsed.acknowledged && !parsed.presence_shown) {

@@ -2,6 +2,7 @@ import type { Message } from '@/types/message';
 import type { UserProfile } from './types';
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
+import { logUsage } from '@/lib/usage';
 
 // ---------------------------------------------------------------------------
 // summariseConversation — functional memory for the next session
@@ -90,13 +91,14 @@ export async function summariseConversation(
 
   try {
     const routing = getModelRouting();
-    const text = await callModel(
+    const result = await callModel(
       routing.summary,
       '',
       [{ role: 'user', content: fullPrompt }],
     );
+    logUsage(result.usage, 'summary');
 
-    return text.trim();
+    return result.text.trim();
   } catch (err) {
     console.error('[summarise] Summarisation error:', err);
     return '';

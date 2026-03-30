@@ -4,6 +4,7 @@
 
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
+import { logUsage } from '@/lib/usage';
 import type { Message } from '@/types/message';
 
 export interface RelationalThread {
@@ -101,14 +102,15 @@ Return raw JSON only.`;
 
   try {
     const routing = getModelRouting();
-    const text = await callModel(
+    const result = await callModel(
       routing.depthScoring, // same Opus config as depth scoring
       '',
       [{ role: 'user', content: prompt }],
       0.3,
     );
+    logUsage(result.usage, 'relational_check', userId);
 
-    const cleaned = text
+    const cleaned = result.text
       .replace(/^\s*```(?:json)?\s*\n?/i, '')
       .replace(/\n?\s*```\s*$/i, '')
       .trim();
@@ -163,14 +165,15 @@ Return raw JSON only.`;
 
   try {
     const routing = getModelRouting();
-    const text = await callModel(
+    const result = await callModel(
       routing.summary, // Opus config
       '',
       [{ role: 'user', content: prompt }],
       0.3,
     );
+    logUsage(result.usage, 'relational_threads');
 
-    const cleaned = text
+    const cleaned = result.text
       .replace(/^\s*```(?:json)?\s*\n?/i, '')
       .replace(/\n?\s*```\s*$/i, '')
       .trim();

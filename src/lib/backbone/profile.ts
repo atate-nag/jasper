@@ -218,14 +218,16 @@ The goal: the list should get SHARPER with each update, not longer. Prefer REPLA
 Return ONLY a JSON array of decisions:
 [{"proposed": "P1", "action": "REPLACE", "target": 3}, {"proposed": "P2", "action": "ADD"}, {"proposed": "P3", "action": "SKIP"}]`;
 
+  const { logUsage } = await import('@/lib/usage');
   const routing = getModelRouting();
-  const text = await callModel(
+  const modelResult = await callModel(
     routing.classification, // Haiku — cheap, fast, good at structured comparison
     '',
     [{ role: 'user', content: prompt }],
   );
+  logUsage(modelResult.usage, 'profile_merge');
 
-  const cleaned = text
+  const cleaned = modelResult.text
     .replace(/^\s*```(?:json)?\s*\n?/i, '')
     .replace(/\n?\s*```\s*$/i, '')
     .trim();
@@ -695,6 +697,14 @@ Return ONLY a valid JSON array of strings. No commentary.`;
     temperature: 0,
     messages: [{ role: 'user', content: prompt }],
   });
+
+  const { logUsage: logUsageFn } = await import('@/lib/usage');
+  logUsageFn({
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    model: 'claude-haiku-4-5-20251001',
+    provider: 'anthropic',
+  }, 'profile_compress');
 
   const block = response.content[0];
   if (block.type !== 'text') return entries;

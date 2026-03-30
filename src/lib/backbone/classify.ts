@@ -3,6 +3,7 @@ import type { UserProfile, UserProfileUpdate } from './types';
 import type { Message } from '@/types/message';
 import { callModel } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
+import { logUsage } from '@/lib/usage';
 
 const MODEL = 'claude-haiku-4-5-20251001';
 
@@ -104,12 +105,14 @@ Return raw JSON only. No markdown backticks, no commentary, no explanation.`;
 
   try {
     const routing = getModelRouting();
-    const text = await callModel(
+    const result = await callModel(
       routing.classification,
       '',
       [{ role: 'user', content: prompt }],
     );
+    logUsage(result.usage, 'classify_profile');
 
+    const text = result.text;
     // Strip markdown fencing — handle whitespace, newlines, multiple backtick styles
     const cleaned = text
       .replace(/^\s*```(?:json)?\s*\n?/i, '')
@@ -204,6 +207,13 @@ Respond with ONLY a JSON array of strings — the candidates to keep. If none ar
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
+
+    logUsage({
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      model: MODEL,
+      provider: 'anthropic',
+    }, 'dedup');
 
     const text =
       response.content[0].type === 'text' ? response.content[0].text : '[]';

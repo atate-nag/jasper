@@ -3,6 +3,7 @@ import type { PersonContext } from '@/lib/backbone/types';
 import type { Message } from '@/types/message';
 import type { ResponseDirective, RelationalDepth } from './types';
 import { buildClassifierSummary } from '@/lib/backbone/profile';
+import { logUsage } from '@/lib/usage';
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -128,6 +129,13 @@ Return ONLY valid JSON.`;
       temperature: 0,
       messages: [{ role: 'user', content: prompt }],
     });
+
+    logUsage({
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      model: 'claude-haiku-4-5-20251001',
+      provider: 'anthropic',
+    }, 'classify');
 
     const block = response.content[0];
     if (block.type !== 'text') throw new Error('Unexpected response type');

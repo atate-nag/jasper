@@ -7,6 +7,7 @@ import { JASPER, buildIdentityPrompt, buildCharacterConfig, isCloneUser } from '
 import type { Message } from '@/types/message';
 import type { ResponseDirective } from '@/lib/intermediary/types';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
+import { logUsage } from '@/lib/usage';
 
 export const maxDuration = 60;
 
@@ -158,6 +159,12 @@ export async function POST(req: Request): Promise<Response> {
                     controller.enqueue(encoder.encode(
                       `data: ${JSON.stringify({ type: 'audio', index: idx, audio: base64 })}\n\n`
                     ));
+                    logUsage({
+                      inputTokens: sentence.length, // TTS charges per character
+                      outputTokens: 0,
+                      model: 'tts-1',
+                      provider: 'openai',
+                    }, 'tts', user.id, conversationId);
                   })
                   .catch(err => {
                     console.error(`[voice] TTS failed for sentence ${idx}:`, err);
@@ -191,6 +198,16 @@ export async function POST(req: Request): Promise<Response> {
             user.id, conversationId, sessionHistory,
             lastUserMessage, fullText, steering, responseLatencyMs, voiceUserName,
           ).catch(console.error);
+
+          // Log token usage
+          Promise.resolve(result.usage).then(usage => {
+            logUsage({
+              inputTokens: usage.inputTokens || 0,
+              outputTokens: usage.outputTokens || 0,
+              model: steering.modelConfig.model,
+              provider: steering.modelConfig.provider,
+            }, 'voice_chat', user.id, conversationId, responseLatencyMs);
+          }).catch(() => {});
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
