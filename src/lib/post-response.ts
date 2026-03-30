@@ -19,10 +19,29 @@ const sessionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const SESSION_INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function getOrCreateConversation(userId: string): Promise<string | null> {
-  const existing = activeConversations.get(userId);
-  if (existing) return existing;
+  // Check in-memory cache first (fast path within same function instance)
+  const cached = activeConversations.get(userId);
+  if (cached) return cached;
 
   try {
+    // Check database for a recent active conversation (no ended_at, started within SESSION_INACTIVITY_MS)
+    const cutoff = new Date(Date.now() - SESSION_INACTIVITY_MS).toISOString();
+    const { data: existing } = await getSupabaseAdmin()
+      .from('conversations')
+      .select('id')
+      .eq('user_id', userId)
+      .is('ended_at', null)
+      .gte('started_at', cutoff)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      activeConversations.set(userId, existing.id);
+      return existing.id;
+    }
+
+    // No active conversation — create a new one
     const { data, error } = await getSupabaseAdmin()
       .from('conversations')
       .insert({
