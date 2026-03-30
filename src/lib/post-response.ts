@@ -374,6 +374,18 @@ export async function runSessionEnd(
       console.error('[session-end] Metacognition failed:', msg);
     }
 
+    // 4.5 Thread detection (behind feature flag)
+    if (conversationId && summary) {
+      try {
+        const { detectThreadCandidates } = await import('@/lib/backbone/threads');
+        await detectThreadCandidates(userId, conversationId, summary);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push({ step: 'thread_detection', error: msg });
+        console.error('[session-end] Thread detection failed:', msg);
+      }
+    }
+
     // 5. Compute session analytics from turn logs
     let sessionGapHours: number | null = null;
     if (conversationId) {
