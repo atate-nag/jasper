@@ -49,7 +49,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
     api: '/api/chat',
     body: () => openerRef.current ? { openerMessage: openerRef.current } : {},
   }), []);
-  const { messages, sendMessage, status } = useChat({ transport });
+  const { messages, sendMessage, status, error: chatError, clearError } = useChat({ transport });
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +65,21 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const [ready, setReady] = useState(!isClone); // non-clone users are ready immediately
 
   const isLoading = status === 'streaming' || status === 'submitted';
+  const [stuckTimer, setStuckTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [showStuckWarning, setShowStuckWarning] = useState(false);
+
+  // Detect stuck state: if status is 'submitted' for >30s without streaming, show warning
+  useEffect(() => {
+    if (status === 'submitted') {
+      const timer = setTimeout(() => setShowStuckWarning(true), 30000);
+      setStuckTimer(timer);
+    } else {
+      if (stuckTimer) clearTimeout(stuckTimer);
+      setStuckTimer(null);
+      setShowStuckWarning(false);
+    }
+    return () => { if (stuckTimer) clearTimeout(stuckTimer); };
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch previous conversations for display
   useEffect(() => {
@@ -433,6 +448,32 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
 
       {/* Voice input */}
       {voiceEnabled && <VoiceInput onTranscript={handleVoiceTranscript} />}
+
+      {/* Stuck warning */}
+      {showStuckWarning && !chatError && (
+        <div className="px-6 py-3 bg-yellow-900/50 border-t border-yellow-800">
+          <span className="text-yellow-300 text-sm">
+            Taking longer than expected. Your message may not have gone through — try refreshing the page.
+          </span>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {chatError && (
+        <div className="px-6 py-3 bg-red-900/50 border-t border-red-800 flex items-center justify-between">
+          <span className="text-red-300 text-sm">
+            {chatError.message.includes('401') || chatError.message.includes('Unauthorized')
+              ? 'Session expired — please refresh the page and try again.'
+              : `Something went wrong — try sending your message again.`}
+          </span>
+          <button
+            onClick={() => clearError()}
+            className="text-red-400 hover:text-red-200 text-sm px-2"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Text input */}
       <form onSubmit={handleSubmit} className="px-6 py-4 border-t border-gray-800">
