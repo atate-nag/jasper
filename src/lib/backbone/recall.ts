@@ -404,13 +404,19 @@ export async function recall(request: RecallRequest): Promise<RecallResult> {
     console.log(`[recall] Top candidate: sim=${candidates[0].cosineSimilarity.toFixed(3)} "${candidates[0].content.slice(0, 60)}..."`);
   }
 
-  // 3. Score with Generative Agents formula
+  // 3. Score with Generative Agents formula + recency boost
   const now = new Date();
   const scored: RecalledSegment[] = candidates.map(seg => {
     const hoursAgo = (now.getTime() - seg.conversationDate.getTime()) / (1000 * 60 * 60);
     const recencyScore = Math.pow(0.995, hoursAgo);
     const importanceNorm = seg.importanceScore / 10;
     const relevanceScore = seg.cosineSimilarity;
+
+    // Recency boost: segments from the last 48 hours get a significant bump.
+    // This ensures "what happened yesterday" doesn't get buried by older
+    // segments with marginally better semantic similarity.
+    // Boost decays linearly: 1.0 at 0h → 0.0 at 48h.
+    const recencyBoost = hoursAgo < 48 ? (1 - hoursAgo / 48) * 0.3 : 0;
 
     const recencyWeight = request.recencyBias;
     const importanceWeight = (1 - request.recencyBias) * 0.4;
@@ -419,7 +425,8 @@ export async function recall(request: RecallRequest): Promise<RecallResult> {
     const compositeScore =
       recencyWeight * recencyScore +
       importanceWeight * importanceNorm +
-      relevanceWeight * relevanceScore;
+      relevanceWeight * relevanceScore +
+      recencyBoost;
 
     return {
       id: seg.id,
