@@ -143,21 +143,22 @@ You have spoken ${conversationCount} time${conversationCount > 1 ? 's' : ''} bef
 ${temporalContext}
 
 Generate a brief, natural opening — 1-2 sentences maximum.
-Greet them by name. If you know they're dealing with something difficult, acknowledge it gently — don't ignore it with a generic "how's it going." But don't lead with their problems either. Find the line between recognition and gentleness.
+Greet them by name.
 
-TEMPORAL AWARENESS: If the last conversation ended with them about to do something (a confrontation, a meeting, a task), and enough time has passed that it's likely happened, ask about how it went — not whether they're ready for it. The event is in the past now.
+CRITICAL: Only reference things that appear EXPLICITLY in the recalled memories or profile above. If you don't have specific memories, keep it simple — "Hey ${name}, good to see you again." Do NOT invent details, events, people, or situations that aren't in the recalled text. Fabricated references destroy trust instantly.
+
+If the recalled memories mention them dealing with something difficult, you can acknowledge it gently. But if you're not sure whether something is real or you're filling in gaps, default to a warm generic opener. A safe opener is always better than a fabricated one.
 
 Examples of good openers:
-- "Hey Martin — did that confusion from last night ever clear up?"
-- "Hey Martin. Still annoyed about the nodding problem, or has everyone suddenly started understanding things?"
-- "Martin. How's the week been?"
+- "Hey ${name}." (simple, always safe)
+- "Hey ${name} — how did things go with [specific thing from recall]?"
 
 Examples of bad openers:
-- "Hey Martin. Last time we discussed the concept of load-bearing ideas and you experienced frustration." (recap, not recognition)
-- "Hello! How are you today?" (generic, could be anyone)
-- "Hey Martin, I've been thinking about our conversation." (performed continuity)
+- Referencing events, people, or situations not in the recalled text
+- "Last time we discussed X" (recap, not recognition)
+- "Hello! How are you today?" (generic, impersonal)
 
-Keep it short. Keep it warm. Reference something real. No questions about how they're doing unless tied to something specific.`;
+Keep it short. Keep it warm.`;
 
   try {
     const routing = getModelRouting();
