@@ -1,4 +1,4 @@
-// Returns the most recent ended conversation's messages for display.
+// Returns recent conversations for display on page load.
 
 import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
@@ -9,30 +9,32 @@ export async function GET(): Promise<Response> {
   if (error || !user) return new Response('Unauthorized', { status: 401 });
 
   try {
-    // Get the most recent conversation with messages
     const { data } = await getSupabaseAdmin()
       .from('conversations')
       .select('id, started_at, messages, summary')
       .eq('user_id', user.id)
       .order('started_at', { ascending: false })
-      .limit(5);
+      .limit(20);
 
-    // Find the most recent conversation that has actual messages
-    const previous = (data || []).find(c =>
-      Array.isArray(c.messages) && (c.messages as unknown[]).length >= 2
-    );
+    // Get conversations with actual messages, up to 3
+    const previous = (data || [])
+      .filter(c => Array.isArray(c.messages) && (c.messages as unknown[]).length >= 2)
+      .slice(0, 3)
+      .reverse(); // oldest first
 
-    if (!previous) {
-      return Response.json({ messages: [], summary: null });
+    if (previous.length === 0) {
+      return Response.json({ conversations: [] });
     }
 
     return Response.json({
-      conversationId: previous.id,
-      startedAt: previous.started_at,
-      messages: previous.messages,
-      summary: previous.summary,
+      conversations: previous.map(c => ({
+        conversationId: c.id,
+        startedAt: c.started_at,
+        messages: c.messages,
+        summary: c.summary,
+      })),
     });
   } catch {
-    return Response.json({ messages: [] }, { status: 500 });
+    return Response.json({ conversations: [] }, { status: 500 });
   }
 }

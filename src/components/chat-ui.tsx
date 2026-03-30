@@ -61,18 +61,18 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   const [observeMode, setObserveMode] = useState(false);
   const [observeLog, setObserveLog] = useState<ObserveData[]>([]);
   const [openerMessage, setOpenerMessage] = useState<string | null>(null);
-  const [previousMessages, setPreviousMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const [previousConversations, setPreviousConversations] = useState<Array<{ startedAt: string; messages: Array<{ role: string; content: string }> }>>([]);
   const [ready, setReady] = useState(!isClone); // non-clone users are ready immediately
 
   const isLoading = status === 'streaming' || status === 'submitted';
 
-  // Fetch previous conversation for display
+  // Fetch previous conversations for display
   useEffect(() => {
     fetch('/api/chat/history')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
-        if (data?.messages?.length >= 2) {
-          setPreviousMessages(data.messages);
+        if (data?.conversations?.length > 0) {
+          setPreviousConversations(data.conversations);
         }
       })
       .catch(() => {});
@@ -302,31 +302,37 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         {/* Messages */}
         <div ref={scrollRef} className={`flex-1 overflow-y-auto px-6 py-4 space-y-6 ${observeMode ? 'w-2/3' : 'w-full'}`}>
           {/* Previous conversation history */}
-          {previousMessages.length > 0 && messages.length === 0 && voiceMessages.length <= 1 && (
-            <div className="opacity-50 space-y-4 pb-4 mb-4 border-b border-gray-800">
-              <p className="text-xs text-gray-600 uppercase tracking-wide">Previous conversation</p>
-              {previousMessages.map((m, i) => (
-                <div key={`prev-${i}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      m.role === 'user'
-                        ? 'bg-blue-900/50 text-gray-300'
-                        : 'bg-gray-800/50 text-gray-400'
-                    }`}
-                  >
-                    {m.role === 'assistant' ? (
-                      <div className="prose prose-invert prose-sm max-w-none leading-relaxed opacity-70">
-                        <Markdown>{m.content}</Markdown>
+          {previousConversations.length > 0 && messages.length === 0 && voiceMessages.length <= 1 && (
+            <div className="space-y-6 pb-4 mb-4 border-b border-gray-700">
+              {previousConversations.map((conv, ci) => (
+                <div key={`conv-${ci}`} className="space-y-3">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">
+                    {new Date(conv.startedAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  {conv.messages.map((m, i) => (
+                    <div key={`prev-${ci}-${i}`} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                          m.role === 'user'
+                            ? 'bg-blue-800/40 text-gray-300'
+                            : 'bg-gray-800/70 text-gray-300'
+                        }`}
+                      >
+                        {m.role === 'assistant' ? (
+                          <div className="prose prose-invert prose-sm max-w-none leading-relaxed">
+                            <Markdown>{m.content}</Markdown>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                        )}
                       </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
           )}
-          {messages.length === 0 && voiceMessages.length === 0 && previousMessages.length === 0 && (
+          {messages.length === 0 && voiceMessages.length === 0 && previousConversations.length === 0 && (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600 text-lg">Say something.</p>
             </div>
