@@ -257,7 +257,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   }
 
   // Relationship mode: detect keywords and use non-streaming path
-  const relationshipKeywords = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn't|he doesn't|she won't|he won't|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|settlement|he always|she always|he never|she never)\b/i;
+  const relationshipKeywords = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|she will|he will|she is|he is|told me|accused me|blocked me|called me|says I|telling me|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|settlement|he always|she always|he never|she never|relationship (help|advice|problem|issue))\b/i;
   const relationshipActiveRef = useRef(false);
 
   async function handleRelationshipSubmit(text: string) {
@@ -280,6 +280,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: allMessages,
+          relationshipMode: true,
           ...(openerRef.current ? { openerMessage: openerRef.current } : {}),
         }),
       });

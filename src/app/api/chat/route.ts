@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const body = await req.json();
-  const { messages: rawMessages = [], previousDirective, openerMessage } = body as {
+  const { messages: rawMessages = [], previousDirective, openerMessage, relationshipMode: clientRelationshipMode } = body as {
     messages?: Array<{
       role: string;
       content?: string;
@@ -32,6 +32,7 @@ export async function POST(req: Request): Promise<Response> {
     }>;
     previousDirective?: ResponseDirective;
     openerMessage?: string;
+    relationshipMode?: boolean;
   };
 
   // AI SDK v6 sends parts instead of content — extract text from both formats
@@ -105,7 +106,8 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const userName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
-    const relationshipModeActive = (steering.analytics?.relationshipContextActive) || false;
+    // Only use non-streaming path when client explicitly requests it
+    const relationshipModeActive = clientRelationshipMode === true;
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
     // Relationship mode: generate full response, check, rewrite if needed, return JSON
