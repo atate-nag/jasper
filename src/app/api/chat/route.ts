@@ -103,7 +103,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const userName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
-    const relationshipModeActive = (steering.analytics?.relationshipTurnCount || 0) >= 3;
+    const relationshipModeActive = (steering.analytics?.relationshipContextActive) || false;
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
     // When relationship mode is active, buffer the response for safety rewrite

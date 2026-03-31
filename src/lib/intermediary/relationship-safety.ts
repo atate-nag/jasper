@@ -88,7 +88,7 @@ export function buildRelationshipInjection(
   const components: PromptComponent[] = [];
   const count = state.relationshipTurnCount;
 
-  if (count < 3) return components;
+  if (count < 1) return components;
 
   // Relationship mode replaces the policy directive
   components.push({
