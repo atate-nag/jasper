@@ -25,6 +25,8 @@ export interface ConversationState {
   lastArousal: number;
   witClusterActive: boolean;
   witClusterTurnsRemaining: number;
+  relationshipTurnCount: number;
+  relationshipInterventionFired: boolean;
 }
 
 export function initialConversationState(): ConversationState {
@@ -43,6 +45,8 @@ export function initialConversationState(): ConversationState {
     lastArousal: 0,
     witClusterActive: false,
     witClusterTurnsRemaining: 0,
+    relationshipTurnCount: 0,
+    relationshipInterventionFired: false,
   };
 }
 

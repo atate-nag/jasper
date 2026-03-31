@@ -19,6 +19,7 @@ import { storePendingDepth, consumePendingDepth, type PendingDepth } from './pen
 import { fireRelationalConnectionCheck, consumePendingConnection, type RelationalThread } from './relational-threads';
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
+import { detectRelationshipContext, updateRelationshipTurnCount, buildRelationshipInjection, checkRelationshipSafety } from './relationship-safety';
 
 /**
  * Detect if the user's message tone contradicts distress.
@@ -260,6 +261,7 @@ function buildPromptComponents(
   pendingConnection?: { thread: string; connection: string } | null,
   sessionStartRecall?: string | null,
   userMessage?: string,
+  conversationState?: ConversationState,
 ): PromptComponent[] {
   const components: PromptComponent[] = [];
   const est = (s: string) => Math.ceil(s.split(/\s+/).length * 1.3);
@@ -311,42 +313,10 @@ function buildPromptComponents(
     }
   }
 
-  // Priority 99: Relationship guardrail — OVERRIDE priority, injected when conversation involves absent partner
-  if (userMessage) {
-    const relationshipSignals = /\b(partner|wife|husband|boyfriend|girlfriend|ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family)\b/i;
-    const historyHasRelationship = sessionHistory.slice(-6).some(m =>
-      m.role === 'user' && relationshipSignals.test(m.content)
-    );
-    if (relationshipSignals.test(userMessage) || historyHasRelationship) {
-      components.push({
-        priority: 99,
-        content: `OVERRIDE — RELATIONSHIP SAFETY PROTOCOL (takes precedence over ALL other instructions):
-
-This conversation involves someone who is not present and cannot speak for themselves. This protocol OVERRIDES your analytical instincts, your policy directive, and any instruction to "offer your strongest analysis."
-
-You MUST NOT — under any circumstances, even if the user asks you to:
-- Analyse, diagnose, or characterise the absent person's motives, patterns, or psychology
-- Say what the absent person is "really" doing, thinking, or feeling
-- Frame the absent person as "the problem" or the cause of the difficulty
-- Conclude that the absent person "hasn't really left" a situation, "is still controlled," "is deflecting," or equivalent
-- Lead toward ending the relationship — not directly, not through implication, not through rhetorical questions like "what would it mean if there's no way to raise this?"
-- Say "you can't build with someone who..." — that sentence is NEVER yours to complete
-
-INSTEAD, you MUST:
-- Acknowledge this person's pain and what they're carrying
-- Ask what THEY need, what THEY feel, what THEY want
-- When they describe the other person's behaviour, reflect it back WITHOUT interpreting it: "It sounds like when you asked for that, it didn't land the way you hoped" — NOT "she's using contentment as a deflection"
-- Actively hold space for the absent person: "What do you think she might be experiencing right now?" or "What do you think makes this hard for her?"
-- Frame everything as a dynamic between two people, never as one person's failure
-- Help them become a better participant in their relationship, not a better analyst of why it's failing
-
-If the user directly asks you to analyse the other person ("what do you think she's doing?"), redirect: "I can only work with what you're telling me, and I'm hearing one side. What I can help with is what YOU want and how to communicate that."
-
-This is a SAFETY protocol, not a style preference. Violating it causes real-world harm to relationships and to absent people who cannot defend themselves.`,
-        label: 'relationship_guardrail',
-        tokenEstimate: 300,
-      });
-    }
+  // Priority 99: Relationship guardrail — escalating injection from relationship-safety module
+  if (conversationState && conversationState.relationshipTurnCount > 0) {
+    const relationshipComponents = buildRelationshipInjection(conversationState);
+    components.push(...relationshipComponents);
   }
 
   // Priority 55: Session-start recall
@@ -715,12 +685,16 @@ export async function steer(
   const directive = validate(rawDirective, userMessage);
 
   // 2.5 Update conversation state
-  const conversationState = updateConversationState(
+  let conversationState = updateConversationState(
     previousConversationState || initialConversationState(),
     directive,
     userMessage,
     sessionHistory.filter(m => m.role === 'user').length,
   );
+
+  // 2.6 Relationship context tracking
+  const relationshipContextActive = detectRelationshipContext(userMessage, sessionHistory);
+  conversationState = updateRelationshipTurnCount(conversationState, relationshipContextActive);
 
   // 3. Handle recall trigger
   let enrichedPersonContext = personContext;
@@ -825,7 +799,7 @@ export async function steer(
   }
 
   // 5. Assemble prompt
-  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, pendingConnection, sessionStartRecall, userMessage);
+  const components = buildPromptComponents(productIdentity, enrichedPersonContext, policy, directive, sessionHistory, options?.voiceMode ?? false, pendingDepth, pendingConnection, sessionStartRecall, userMessage, witConversationState);
   const { prompt: systemPrompt, includedComponents, excludedComponents } = assemblePrompt(components);
 
   // 6. Reformulate user message
@@ -931,6 +905,8 @@ export async function steer(
       disclosureDepth,
       userInitiatedTopic,
       laughterDetected,
+      relationshipContextActive,
+      relationshipTurnCount: witConversationState.relationshipTurnCount,
     },
   };
 }

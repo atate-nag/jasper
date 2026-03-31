@@ -109,6 +109,8 @@ export interface SteeringResult {
     disclosureDepth: number;
     userInitiatedTopic: boolean;
     laughterDetected: boolean;
+    relationshipContextActive: boolean;
+    relationshipTurnCount: number;
   };
 }
 
