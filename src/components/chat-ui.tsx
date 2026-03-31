@@ -264,7 +264,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   }
 
   // Relationship mode: detect keywords and use non-streaming path
-  const relationshipKeywords = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|she will|he will|she is|he is|told me|accused me|blocked me|called me|says I|telling me|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|settlement|he always|she always|he never|she never|relationship (help|advice|problem|issue))\b/i;
+  const relationshipKeywords = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|she will|he will|she is|he is|told me|accused me|blocked me|called me|says I|telling me|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|settlement|he always|she always|he never|she never|relationship (help|advice|problems?|issues?))\b/i;
   const relationshipActiveRef = useRef(false);
 
   async function handleRelationshipSubmit(text: string) {
@@ -344,26 +344,14 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
       return;
     }
 
-    // Check for relationship keywords in current message or recent history
-    const recentUserMessages = [
-      ...voiceMessages.filter(m => m.role === 'user').map(m => m.text),
-      ...messages.filter(m => m.role === 'user').map(m => {
-        const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
-        return parts?.filter(p => p.type === 'text').map(p => p.text || '').join('') || '';
-      }),
-    ].slice(-6);
-
+    // Check for relationship keywords
     if (relationshipKeywords.test(text)) {
       relationshipActiveRef.current = true;
     }
-    // Stay in relationship mode once activated (until 5 clean turns)
-    if (relationshipActiveRef.current && !relationshipKeywords.test(text)) {
-      // Decrement — but only deactivate after enough clean turns
-      // For simplicity, stay active for the rest of the session once triggered
-    }
 
-    if (relationshipActiveRef.current || recentUserMessages.some(m => relationshipKeywords.test(m))) {
-      relationshipActiveRef.current = true;
+    // Once relationship mode is active, ALL turns use the direct path
+    // This prevents split-brain between useChat and direct fetch
+    if (relationshipActiveRef.current) {
       handleRelationshipSubmit(text);
     } else {
       sendMessage({ text });
