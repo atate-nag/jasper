@@ -10,6 +10,8 @@ import { setObserveData } from '@/app/api/observe/route';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
 import { logUsage } from '@/lib/usage';
 import { relationshipSafetyRewrite } from '@/lib/intermediary/relationship-safety';
+import { callModel } from '@/lib/model-client';
+import { getModelRouting } from '@/lib/config/models';
 
 export const maxDuration = 60;
 
@@ -106,7 +108,72 @@ export async function POST(req: Request): Promise<Response> {
     const relationshipModeActive = (steering.analytics?.relationshipContextActive) || false;
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
-    // Normal streaming path — relationship safety rewrite runs post-generation in onFinish
+    // Relationship mode: generate full response, check, rewrite if needed, return JSON
+    if (relationshipModeActive) {
+      console.log('[chat] RELATIONSHIP MODE — non-streaming path');
+      const routing = getModelRouting();
+      const genResult = await callModel(
+        routing[steering.modelConfig.tier],
+        steering.systemPrompt,
+        llmMessages,
+        steering.modelConfig.temperature,
+      );
+
+      const responseLatencyMs = Date.now() - responseStart;
+      logUsage(genResult.usage, 'chat', user.id, conversationId, responseLatencyMs);
+
+      // Run safety check + rewrite
+      const safetyResult = await relationshipSafetyRewrite(
+        genResult.text, userName, user.id,
+      );
+
+      const finalText = safetyResult.text;
+
+      if (safetyResult.rewritten) {
+        console.log(`[relationship-safety] Rewritten. Violations: ${safetyResult.violations.join(' | ')}`);
+      } else {
+        console.log('[relationship-safety] Check passed — no rewrite needed');
+      }
+
+      // Store observe data
+      setObserveData(user.id, {
+        intent: d.communicativeIntent,
+        valence: d.emotionalValence,
+        arousal: d.emotionalArousal,
+        posture: d.recommendedPostureClass,
+        length: d.recommendedResponseLength,
+        challenge: d.challengeAppropriate,
+        dispreferred: d.dispreferred,
+        confidence: d.confidence,
+        rationale: d.rationale,
+        policy: steering.selectedPolicy.id,
+        model: steering.modelConfig.model,
+        tier: steering.modelConfig.tier,
+        temperature: steering.modelConfig.temperature,
+        maxTokens: steering.modelConfig.maxTokens,
+        recallTier: d.recallTier,
+        recallQuery: d.recallQuery,
+        steerLatencyMs,
+      });
+
+      handlePostResponse(
+        user.id, conversationId, sessionHistory,
+        lastUserMessage, finalText, steering, responseLatencyMs, userName,
+      ).catch(console.error);
+
+      return Response.json(
+        { role: 'assistant', content: finalText },
+        {
+          headers: {
+            'X-Jasper-Non-Streamed': 'true',
+            'X-Jasper-Relationship-Mode': 'true',
+            'X-Jasper-Rewritten': safetyResult.rewritten ? 'true' : 'false',
+          },
+        },
+      );
+    }
+
+    // Normal streaming path (no relationship mode)
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,
@@ -124,16 +191,6 @@ export async function POST(req: Request): Promise<Response> {
           model: steering.modelConfig.model,
           provider: steering.modelConfig.provider,
         }, 'chat', user.id, conversationId, responseLatencyMs);
-
-        // Relationship safety: check and log violations post-generation
-        if (relationshipModeActive) {
-          relationshipSafetyRewrite(text, userName, user.id).then(safetyResult => {
-            if (safetyResult.rewritten) {
-              console.warn(`[relationship-safety] VIOLATIONS DETECTED (post-stream): ${safetyResult.violations.join(' | ')}`);
-              // TODO: In future, implement client-side correction mechanism
-            }
-          }).catch(err => console.error('[relationship-safety] Check failed:', err));
-        }
 
         handlePostResponse(
           user.id, conversationId, sessionHistory,

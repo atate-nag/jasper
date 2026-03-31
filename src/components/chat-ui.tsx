@@ -256,15 +256,110 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
     }
   }
 
+  // Relationship mode: detect keywords and use non-streaming path
+  const relationshipKeywords = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn't|he doesn't|she won't|he won't|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|settlement|he always|she always|he never|she never)\b/i;
+  const relationshipActiveRef = useRef(false);
+
+  async function handleRelationshipSubmit(text: string) {
+    const userMsgId = `rel-user-${Date.now()}`;
+    const assistantMsgId = `rel-assistant-${Date.now()}`;
+    setVoiceMessages(prev => [...prev, { id: userMsgId, role: 'user', text }]);
+    setVoiceMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', text: '' }]);
+    setVoiceStreaming(true); // reuse as "thinking" indicator
+
+    try {
+      // Build message history from both sources
+      const allMessages = [
+        ...messages.map(m => ({ role: m.role, parts: m.parts })),
+        ...voiceMessages.filter(m => m.text).map(m => ({ role: m.role, parts: [{ type: 'text', text: m.text }] })),
+        { role: 'user', parts: [{ type: 'text', text }] },
+      ];
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: allMessages,
+          ...(openerRef.current ? { openerMessage: openerRef.current } : {}),
+        }),
+      });
+
+      if (res.headers.get('X-Jasper-Non-Streamed') === 'true') {
+        // Non-streamed relationship mode response
+        const data = await res.json();
+        setVoiceMessages(prev =>
+          prev.map(m => m.id === assistantMsgId
+            ? { ...m, text: data.content }
+            : m
+          )
+        );
+      } else {
+        // Fell through to streaming — shouldn't happen but handle gracefully
+        // Read the stream and accumulate
+        if (res.body) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let fullText = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            fullText += decoder.decode(value, { stream: true });
+          }
+          // Try to extract text from SSE format
+          const textMatch = fullText.match(/"text(?:Delta)?"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+          const extracted = textMatch ? JSON.parse('"' + textMatch[1] + '"') : fullText;
+          setVoiceMessages(prev =>
+            prev.map(m => m.id === assistantMsgId
+              ? { ...m, text: extracted }
+              : m
+            )
+          );
+        }
+      }
+    } catch (err) {
+      console.error('[relationship-mode] Error:', err);
+      setVoiceMessages(prev => prev.filter(m => m.id !== assistantMsgId));
+    } finally {
+      setVoiceStreaming(false);
+    }
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading || voiceStreaming) return;
-    if (voiceEnabled) {
-      handleVoiceSubmit(input);
-    } else {
-      sendMessage({ text: input });
-    }
+
+    const text = input;
     setInput('');
+
+    if (voiceEnabled) {
+      handleVoiceSubmit(text);
+      return;
+    }
+
+    // Check for relationship keywords in current message or recent history
+    const recentUserMessages = [
+      ...voiceMessages.filter(m => m.role === 'user').map(m => m.text),
+      ...messages.filter(m => m.role === 'user').map(m => {
+        const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
+        return parts?.filter(p => p.type === 'text').map(p => p.text || '').join('') || '';
+      }),
+    ].slice(-6);
+
+    if (relationshipKeywords.test(text)) {
+      relationshipActiveRef.current = true;
+    }
+    // Stay in relationship mode once activated (until 5 clean turns)
+    if (relationshipActiveRef.current && !relationshipKeywords.test(text)) {
+      // Decrement — but only deactivate after enough clean turns
+      // For simplicity, stay active for the rest of the session once triggered
+    }
+
+    if (relationshipActiveRef.current || recentUserMessages.some(m => relationshipKeywords.test(m))) {
+      relationshipActiveRef.current = true;
+      handleRelationshipSubmit(text);
+    } else {
+      sendMessage({ text });
+    }
   }
 
   // Keyboard shortcut: Ctrl+Shift+O to toggle observe
