@@ -24,14 +24,14 @@ export async function getOrCreateConversation(userId: string): Promise<string | 
   if (cached) return cached;
 
   try {
-    // Check database for a recent active conversation (no ended_at, started within SESSION_INACTIVITY_MS)
-    const cutoff = new Date(Date.now() - SESSION_INACTIVITY_MS).toISOString();
+    // Check database for any active conversation (no ended_at)
+    // Don't use a time window — the session-end pipeline sets ended_at
+    // when the conversation is truly over. If it has no ended_at, it's still active.
     const { data: existing } = await getSupabaseAdmin()
       .from('conversations')
       .select('id')
       .eq('user_id', userId)
       .is('ended_at', null)
-      .gte('started_at', cutoff)
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle();
