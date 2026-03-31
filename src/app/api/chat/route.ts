@@ -1,4 +1,4 @@
-import { streamText, generateText, createUIMessageStream, createUIMessageStreamResponse } from 'ai';
+import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonContext } from '@/lib/backbone';
@@ -106,82 +106,7 @@ export async function POST(req: Request): Promise<Response> {
     const relationshipModeActive = (steering.analytics?.relationshipContextActive) || false;
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
-    // When relationship mode is active, buffer the response for safety rewrite
-    console.log(`[chat] relationshipModeActive=${relationshipModeActive} | analytics.relCtx=${steering.analytics?.relationshipContextActive} | analytics.relTurns=${steering.analytics?.relationshipTurnCount}`);
-    if (relationshipModeActive) {
-      console.log('[chat] ENTERING BUFFERED RELATIONSHIP MODE');
-      const genResult = await generateText({
-        model: anthropic(steering.modelConfig.model),
-        system: steering.systemPrompt,
-        messages: llmMessages,
-        temperature: steering.modelConfig.temperature,
-        maxOutputTokens: steering.modelConfig.maxTokens,
-      });
-
-      const responseLatencyMs = Date.now() - responseStart;
-      logUsage({
-        inputTokens: genResult.usage.inputTokens || 0,
-        outputTokens: genResult.usage.outputTokens || 0,
-        model: steering.modelConfig.model,
-        provider: steering.modelConfig.provider,
-      }, 'chat', user.id, conversationId, responseLatencyMs);
-
-      // Run relationship safety rewrite
-      const safetyResult = await relationshipSafetyRewrite(
-        genResult.text, userName, user.id,
-      );
-
-      if (safetyResult.rewritten) {
-        console.log(`[relationship-safety] Rewritten. Violations: ${safetyResult.violations.join(' | ')}`);
-      }
-
-      const finalText = safetyResult.text;
-
-      handlePostResponse(
-        user.id, conversationId, sessionHistory,
-        lastUserMessage, finalText, steering, responseLatencyMs, userName,
-      ).catch(console.error);
-
-      // Return as UI message stream compatible with useChat
-      const responseStream = createUIMessageStream({
-        execute: async ({ writer }) => {
-          writer.write({ type: 'text-delta', delta: finalText, id: 'rel-safe' });
-        },
-      });
-
-      // Store observe data
-      setObserveData(user.id, {
-        intent: d.communicativeIntent,
-        valence: d.emotionalValence,
-        arousal: d.emotionalArousal,
-        posture: d.recommendedPostureClass,
-        length: d.recommendedResponseLength,
-        challenge: d.challengeAppropriate,
-        dispreferred: d.dispreferred,
-        confidence: d.confidence,
-        rationale: d.rationale,
-        policy: steering.selectedPolicy.id,
-        model: steering.modelConfig.model,
-        tier: steering.modelConfig.tier,
-        temperature: steering.modelConfig.temperature,
-        maxTokens: steering.modelConfig.maxTokens,
-        recallTier: d.recallTier,
-        recallQuery: d.recallQuery,
-        steerLatencyMs,
-      });
-
-      return createUIMessageStreamResponse({
-        stream: responseStream,
-        headers: {
-          'X-Jasper-Policy': steering.selectedPolicy.id,
-          'X-Jasper-Tier': steering.modelConfig.tier,
-          'X-Jasper-Relationship-Mode': 'true',
-          'X-Jasper-Rewritten': safetyResult.rewritten ? 'true' : 'false',
-        },
-      });
-    }
-
-    // Normal streaming path (no relationship mode)
+    // Normal streaming path — relationship safety rewrite runs post-generation in onFinish
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,
@@ -199,6 +124,17 @@ export async function POST(req: Request): Promise<Response> {
           model: steering.modelConfig.model,
           provider: steering.modelConfig.provider,
         }, 'chat', user.id, conversationId, responseLatencyMs);
+
+        // Relationship safety: check and log violations post-generation
+        if (relationshipModeActive) {
+          relationshipSafetyRewrite(text, userName, user.id).then(safetyResult => {
+            if (safetyResult.rewritten) {
+              console.warn(`[relationship-safety] VIOLATIONS DETECTED (post-stream): ${safetyResult.violations.join(' | ')}`);
+              // TODO: In future, implement client-side correction mechanism
+            }
+          }).catch(err => console.error('[relationship-safety] Check failed:', err));
+        }
+
         handlePostResponse(
           user.id, conversationId, sessionHistory,
           lastUserMessage, text, steering, responseLatencyMs, userName,
