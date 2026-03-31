@@ -1,4 +1,4 @@
-import { streamText, generateText } from 'ai';
+import { streamText, generateText, createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonContext } from '@/lib/backbone';
@@ -142,14 +142,10 @@ export async function POST(req: Request): Promise<Response> {
         lastUserMessage, finalText, steering, responseLatencyMs, userName,
       ).catch(console.error);
 
-      // Return as a non-streaming response wrapped in UI message stream format
-      const encoder = new TextEncoder();
-      const responseStream = new ReadableStream({
-        start(controller) {
-          // Send as a UI message stream event
-          controller.enqueue(encoder.encode(`e:${JSON.stringify({ type: 'text', textDelta: finalText })}\n`));
-          controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: 'stop' })}\n`));
-          controller.close();
+      // Return as UI message stream compatible with useChat
+      const responseStream = createUIMessageStream({
+        execute: async ({ writer }) => {
+          writer.write({ type: 'text-delta', delta: finalText, id: 'rel-safe' });
         },
       });
 
@@ -174,9 +170,9 @@ export async function POST(req: Request): Promise<Response> {
         steerLatencyMs,
       });
 
-      return new Response(responseStream, {
+      return createUIMessageStreamResponse({
+        stream: responseStream,
         headers: {
-          'Content-Type': 'text/event-stream',
           'X-Jasper-Policy': steering.selectedPolicy.id,
           'X-Jasper-Tier': steering.modelConfig.tier,
           'X-Jasper-Relationship-Mode': 'true',
