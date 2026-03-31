@@ -249,8 +249,15 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
   }
 
   function handleVoiceTranscript(text: string) {
-    if (voiceEnabled) {
-      handleVoiceSubmit(text); // voice route only — handles both text and audio
+    // Check for relationship keywords even in voice mode
+    if (relationshipKeywords.test(text)) {
+      relationshipActiveRef.current = true;
+    }
+
+    if (relationshipActiveRef.current && !voiceEnabled) {
+      handleRelationshipSubmit(text);
+    } else if (voiceEnabled) {
+      handleVoiceSubmit(text);
     } else {
       sendMessage({ text });
     }
