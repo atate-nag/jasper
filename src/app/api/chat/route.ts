@@ -107,7 +107,9 @@ export async function POST(req: Request): Promise<Response> {
     console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
     // When relationship mode is active, buffer the response for safety rewrite
+    console.log(`[chat] relationshipModeActive=${relationshipModeActive} | analytics.relCtx=${steering.analytics?.relationshipContextActive} | analytics.relTurns=${steering.analytics?.relationshipTurnCount}`);
     if (relationshipModeActive) {
+      console.log('[chat] ENTERING BUFFERED RELATIONSHIP MODE');
       const genResult = await generateText({
         model: anthropic(steering.modelConfig.model),
         system: steering.systemPrompt,
