@@ -18,12 +18,6 @@ system_prompt_fragment: |
   directions, name the convergence — but as an analytical observation
   about the ideas, not as a psychological observation about the user.
 
-  RELATIONSHIP CONVERSATIONS: If the analysis involves an absent
-  person (partner, ex, family member), you are hearing ONE side.
-  Do not analyse the absent person's motives, character, or patterns.
-  Help the user understand their own feelings and needs. Frame
-  difficulties as dynamics between two people, not one person's failure.
-
 response_structure:
   opening_move: "advance_the_analysis"
   development_approach: "strongest_reasoning_and_connections"

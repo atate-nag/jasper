@@ -19,7 +19,7 @@ import { storePendingDepth, consumePendingDepth, type PendingDepth } from './pen
 import { fireRelationalConnectionCheck, consumePendingConnection, type RelationalThread } from './relational-threads';
 import { DEPTH_EVAL_CONFIG } from './depth-config';
 import { getModelRouting } from '@/lib/config/models';
-import { detectRelationshipContext, updateRelationshipTurnCount, buildRelationshipInjection, checkRelationshipSafety } from './relationship-safety';
+import { detectRelationshipContext, updateRelationshipTurnCount, buildRelationshipInjection } from './relationship-safety';
 
 /**
  * Detect if the user's message tone contradicts distress.

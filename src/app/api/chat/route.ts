@@ -1,4 +1,4 @@
-import { streamText } from 'ai';
+import { streamText, generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getPersonContext } from '@/lib/backbone';
@@ -9,6 +9,7 @@ import type { ResponseDirective } from '@/lib/intermediary/types';
 import { setObserveData } from '@/app/api/observe/route';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
 import { logUsage } from '@/lib/usage';
+import { relationshipSafetyRewrite } from '@/lib/intermediary/relationship-safety';
 
 export const maxDuration = 60;
 
@@ -102,8 +103,87 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const userName = personContext.profile.identity?.name || user.email || user.id.slice(0, 8);
-    console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'} | "${lastUserMessage.slice(0, 50)}"`);
+    const relationshipModeActive = (steering.analytics?.relationshipTurnCount || 0) >= 3;
+    console.log(`[TURN:${userName}] msgs=${sessionHistory.length} | llmMsgs=${llmMessages.length} | prompt=${sysPromptWords}w | ${d.communicativeIntent}→${steering.selectedPolicy.id} | ${steering.modelConfig.model} (${steering.modelConfig.tier}) max=${steering.modelConfig.maxTokens} | steer=${steerLatencyMs}ms | recall=${d.recallTriggered ? d.recallTier : 'no'}${relationshipModeActive ? ' | REL-MODE' : ''} | "${lastUserMessage.slice(0, 50)}"`);
 
+    // When relationship mode is active, buffer the response for safety rewrite
+    if (relationshipModeActive) {
+      const genResult = await generateText({
+        model: anthropic(steering.modelConfig.model),
+        system: steering.systemPrompt,
+        messages: llmMessages,
+        temperature: steering.modelConfig.temperature,
+        maxOutputTokens: steering.modelConfig.maxTokens,
+      });
+
+      const responseLatencyMs = Date.now() - responseStart;
+      logUsage({
+        inputTokens: genResult.usage.inputTokens || 0,
+        outputTokens: genResult.usage.outputTokens || 0,
+        model: steering.modelConfig.model,
+        provider: steering.modelConfig.provider,
+      }, 'chat', user.id, conversationId, responseLatencyMs);
+
+      // Run relationship safety rewrite
+      const safetyResult = await relationshipSafetyRewrite(
+        genResult.text, userName, user.id,
+      );
+
+      if (safetyResult.rewritten) {
+        console.log(`[relationship-safety] Rewritten. Violations: ${safetyResult.violations.join(' | ')}`);
+      }
+
+      const finalText = safetyResult.text;
+
+      handlePostResponse(
+        user.id, conversationId, sessionHistory,
+        lastUserMessage, finalText, steering, responseLatencyMs, userName,
+      ).catch(console.error);
+
+      // Return as a non-streaming response wrapped in UI message stream format
+      const encoder = new TextEncoder();
+      const responseStream = new ReadableStream({
+        start(controller) {
+          // Send as a UI message stream event
+          controller.enqueue(encoder.encode(`e:${JSON.stringify({ type: 'text', textDelta: finalText })}\n`));
+          controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: 'stop' })}\n`));
+          controller.close();
+        },
+      });
+
+      // Store observe data
+      setObserveData(user.id, {
+        intent: d.communicativeIntent,
+        valence: d.emotionalValence,
+        arousal: d.emotionalArousal,
+        posture: d.recommendedPostureClass,
+        length: d.recommendedResponseLength,
+        challenge: d.challengeAppropriate,
+        dispreferred: d.dispreferred,
+        confidence: d.confidence,
+        rationale: d.rationale,
+        policy: steering.selectedPolicy.id,
+        model: steering.modelConfig.model,
+        tier: steering.modelConfig.tier,
+        temperature: steering.modelConfig.temperature,
+        maxTokens: steering.modelConfig.maxTokens,
+        recallTier: d.recallTier,
+        recallQuery: d.recallQuery,
+        steerLatencyMs,
+      });
+
+      return new Response(responseStream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'X-Jasper-Policy': steering.selectedPolicy.id,
+          'X-Jasper-Tier': steering.modelConfig.tier,
+          'X-Jasper-Relationship-Mode': 'true',
+          'X-Jasper-Rewritten': safetyResult.rewritten ? 'true' : 'false',
+        },
+      });
+    }
+
+    // Normal streaming path (no relationship mode)
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,

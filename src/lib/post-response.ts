@@ -154,25 +154,7 @@ export async function handlePostResponse(
     console.error('[post-response] Turn log failed:', err);
   }
 
-  // 2.5. Post-generation relationship safety check
-  if (a?.relationshipContextActive && conversationId) {
-    import('@/lib/intermediary/relationship-safety').then(async ({ checkRelationshipSafety }) => {
-      const result = await checkRelationshipSafety(assistantResponse, userId);
-      if (!result.pass) {
-        console.warn(`[relationship-safety] VIOLATION in conv ${conversationId?.slice(0, 8)}: ${result.violations.join(' | ')}`);
-      }
-      // Update turn log with check result
-      await getSupabaseAdmin()
-        .from('turn_logs')
-        .update({
-          relationship_safety_check: result.pass,
-        })
-        .eq('conversation_id', conversationId)
-        .eq('turn_number', turnNumber);
-    }).catch(err => console.error('[relationship-safety] Check error:', err));
-  }
-
-  // 2.6. Retroactive wit detection — if user laughed, mark PREVIOUS turn as wit
+  // 2.5. Retroactive wit detection — if user laughed, mark PREVIOUS turn as wit
   if (a?.laughterDetected && conversationId && turnNumber > 1) {
     Promise.resolve(
       getSupabaseAdmin()

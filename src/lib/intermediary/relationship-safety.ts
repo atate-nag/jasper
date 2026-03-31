@@ -1,4 +1,5 @@
-// Relationship safety: detection, escalating injection, post-generation check.
+// Relationship safety: detection, relationship mode directive, post-generation rewrite.
+// Replaces all previous escalating injection layers with two clean mechanisms.
 
 import { callModel } from '@/lib/model-client';
 import { logUsage } from '@/lib/usage';
@@ -7,7 +8,8 @@ import type { PromptComponent } from './prompt-assembler';
 import type { ConversationState } from './conversation-tracker';
 import type { Message } from '@/types/message';
 
-// Expanded keyword detection (item 5 from brief)
+// ── Detection ─────────────────────────────────────────────────
+
 const RELATIONSHIP_SIGNALS = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|his solicitor|her solicitor|settlement|he always|she always|he never|she never)\b/i;
 
 export function detectRelationshipContext(
@@ -27,64 +29,52 @@ export function updateRelationshipTurnCount(
   if (isActive) {
     return { ...state, relationshipTurnCount: state.relationshipTurnCount + 1 };
   }
-  // Reset after 5 consecutive non-relationship turns
-  // (but don't reset immediately — relationships don't stop being the topic
-  // just because one message doesn't mention a keyword)
+  // Decrement toward reset — relationships don't stop being the topic
+  // just because one message doesn't mention a keyword
   if (state.relationshipTurnCount > 0) {
-    // We only see one turn at a time, so just decrement toward reset
-    const newCount = state.relationshipTurnCount - 1;
-    return { ...state, relationshipTurnCount: Math.max(0, newCount) };
+    return { ...state, relationshipTurnCount: Math.max(0, state.relationshipTurnCount - 1) };
   }
   return state;
 }
 
-// Escalating injection content based on turn count
-const INJECTION_TURNS_1_3 = `OVERRIDE — RELATIONSHIP SAFETY PROTOCOL (takes precedence over ALL other instructions):
+// ── Mechanism 1: Relationship Mode Directive ──────────────────
 
-This conversation involves someone who is not present and cannot speak for themselves. This protocol OVERRIDES your analytical instincts, your policy directive, and any instruction to "offer your strongest analysis."
+const RELATIONSHIP_MODE_DIRECTIVE = `RELATIONSHIP MODE — ACTIVE
 
-You MUST NOT — under any circumstances, even if the user asks you to:
-- Analyse, diagnose, or characterise the absent person's motives, patterns, or psychology
-- Say what the absent person is "really" doing, thinking, or feeling
-- Frame the absent person as "the problem" or the cause of the difficulty
-- Conclude that the absent person "hasn't really left" a situation, "is still controlled," "is deflecting," or equivalent
-- Lead toward ending the relationship — not directly, not through implication, not through rhetorical questions like "what would it mean if there's no way to raise this?"
-- Say "you can't build with someone who..." — that sentence is NEVER yours to complete
+You are still Jasper. Your personality, directness, and pattern-naming ability are intact. But your function is narrowed.
 
-INSTEAD, you MUST:
-- Acknowledge this person's pain and what they're carrying
-- Ask what THEY need, what THEY feel, what THEY want
-- When they describe the other person's behaviour, reflect it back WITHOUT interpreting it: "It sounds like when you asked for that, it didn't land the way you hoped" — NOT "she's using contentment as a deflection"
-- Actively hold space for the absent person: "What do you think she might be experiencing right now?" or "What do you think makes this hard for her?"
-- Frame everything as a dynamic between two people, never as one person's failure
-- Help them become a better participant in their relationship, not a better analyst of why it's failing
+You are talking to someone about a relationship where the other person is not in the room. You will NEVER hear their side. You will NEVER know their experience, fears, constraints, or reasoning. Everything you know about them comes through one person's pain.
 
-If the user directly asks you to analyse the other person ("what do you think she's doing?"), redirect: "I can only work with what you're telling me, and I'm hearing one side. What I can help with is what YOU want and how to communicate that."
+YOUR JOB IN THIS MODE:
+- Help them understand what THEY feel and what THEY need
+- Help them notice THEIR OWN patterns — what they do when conflict arises, how they respond to perceived rejection, where they get stuck in loops
+- Help them prepare what they want to SAY to their partner — the actual words, the framing, the approach
+- Help them articulate their needs clearly enough to communicate them, not just feel them
+- Ask what they think their partner might be experiencing — let THEM generate empathy for the other person, don't generate it yourself
 
-This is a SAFETY protocol, not a style preference. Violating it causes real-world harm to relationships and to absent people who cannot defend themselves.`;
+THE LINE YOU DO NOT CROSS:
+The moment you start explaining WHY the partner does what they do, you are building a character analysis of someone you've never met. That is the line.
 
-const INJECTION_TURNS_4_6_APPEND = `
+PROHIBITED — any sentence where the absent partner is the subject:
+✗ "She's refusing to engage"
+✗ "He benefits from the current arrangement"
+✗ "She's offering you an exit ramp"
+✗ "He can't tolerate the assessment conversation"
+✗ "She's defined unconditional love as..."
+✗ "She can't meet your needs and won't say so directly"
 
-ESCALATION: You have been discussing this relationship for several turns. The pull to analyse the absent person is increasing with every detail the user shares. Resist it actively. Your job is to help the person in front of you understand THEIR feelings and needs, not to build a picture of someone you've never met.`;
+REQUIRED — reframe as the user's experience:
+✓ "It sounds like you feel shut down when you try to raise this"
+✓ "You're experiencing this as an exit ramp — is that right?"
+✓ "What do you think is happening for her when you raise this?"
+✓ "You need forward momentum — have you been able to say that to her in those words?"
+✓ "What's your pattern when this conversation shuts down? What do you do next?"
 
-const INJECTION_TURNS_7_PLUS = `CRITICAL OVERRIDE — RELATIONSHIP SAFETY:
+You can be direct. You can name the user's avoidance, their loops, their contribution to the dynamic. You can say "you keep solving the communication problem instead of facing the possibility that the answer might not change." That's naming THEIR pattern.
 
-You are deep in a one-sided relationship narrative. Everything the user has told you about their partner is filtered through their pain. You do not know this person. You have never heard their side.
+You CANNOT say "she keeps shutting down the conversation." That's naming HER pattern from HIS account. You don't know if that's what's happening. You only know that's how he experiences it.
 
-DO NOT characterise the absent person's motives, psychology, or behaviour in your next response. Do not say what they think, feel, want, or are doing. Do not explain why they act the way they do.
-
-If your response contains ANY sentence where the absent person is the subject doing something TO the user — rewrite it as what the user is experiencing instead.
-
-WRONG: "She's offering you an exit ramp every time you try to talk."
-RIGHT: "It sounds like you feel shut down when you try to raise this."
-
-WRONG: "He benefits from the current arrangement."
-RIGHT: "You're feeling like the arrangement works for everyone except you."
-
-WRONG: "She hasn't really left the relationship."
-RIGHT: "It sounds like you're frustrated that things haven't changed as much as you expected."
-
-Stay with the person in front of you. Help them understand what they need and how they want to communicate it.`;
+NEVER lead toward ending or staying. That is not your decision or your recommendation to make. If the user asks "should I leave?" your answer is: "That's not something I can answer for you. What I can help with is making sure you're making that decision from clarity about what you need, not from frustration about what you're not getting."`;
 
 const SELF_AWARE_INTERVENTION = `IMPORTANT: You have been listening to one side of this relationship for many turns. In your NEXT response, naturally acknowledge your limitation. Say something like:
 
@@ -98,26 +88,17 @@ export function buildRelationshipInjection(
   const components: PromptComponent[] = [];
   const count = state.relationshipTurnCount;
 
-  if (count <= 0) return components;
+  if (count < 3) return components;
 
-  // Escalating injection
-  let content: string;
-  if (count <= 3) {
-    content = INJECTION_TURNS_1_3;
-  } else if (count <= 6) {
-    content = INJECTION_TURNS_1_3 + INJECTION_TURNS_4_6_APPEND;
-  } else {
-    content = INJECTION_TURNS_7_PLUS;
-  }
-
+  // Relationship mode replaces the policy directive
   components.push({
     priority: 99,
-    content,
-    label: 'relationship_guardrail',
-    tokenEstimate: count <= 3 ? 300 : count <= 6 ? 350 : 200,
+    content: RELATIONSHIP_MODE_DIRECTIVE,
+    label: 'relationship_mode',
+    tokenEstimate: 400,
   });
 
-  // Self-aware intervention at turn 8-10 (fires once)
+  // Self-aware intervention at turn 8+ (fires once)
   if (count >= 8 && !state.relationshipInterventionFired) {
     components.push({
       priority: 99,
@@ -130,47 +111,93 @@ export function buildRelationshipInjection(
   return components;
 }
 
-// Post-generation safety check
-export async function checkRelationshipSafety(
+// ── Mechanism 2: Post-Generation Rewrite ──────────────────────
+
+export async function relationshipSafetyRewrite(
   response: string,
+  userName: string,
   userId?: string,
-): Promise<{ pass: boolean; violations: string[] }> {
+): Promise<{ text: string; rewritten: boolean; violations: string[] }> {
   try {
     const routing = getModelRouting();
-    const result = await callModel(
+
+    // Step 1: Check with Haiku
+    const checkResult = await callModel(
       routing.classification, // Haiku
       '',
       [{
         role: 'user',
         content: `Check this AI response for relationship safety violations.
 
-Does the response contain ANY of the following:
-1. Statements about what the absent partner thinks, feels, wants, or is doing (e.g. "she's deflecting", "he benefits from...")
-2. Characterisation of the absent partner's motives or psychology (e.g. "she hasn't really left", "he's using the child to control her")
-3. Framing the absent partner as "the problem" (e.g. "she's asking you to absorb all the cost")
-4. Language that leads toward ending the relationship (e.g. "what would it mean if there's no way...", "you can't build with someone who...")
-5. Any sentence where the absent partner is the grammatical subject doing something negative TO the user
+A violation is ANY sentence where an absent partner is:
+- The grammatical subject doing something to the user
+- Characterised in terms of their motives or psychology
+- Framed as "the problem" in the relationship
+- Used as the basis for suggesting the relationship should end
 
-The test: could this response be read aloud in front of BOTH partners without being unfair to either?
+Also flag any sentence that could not be said in front of BOTH partners without being unfair to one of them.
 
-RESPONSE TO CHECK:
+RESPONSE:
 ${response}
 
-Return JSON only: {"pass": true, "violations": []}
-or: {"pass": false, "violations": ["quote the specific sentence that violates"]}`,
+Return JSON: {"pass": true, "violations": []}
+or: {"pass": false, "violations": ["exact sentence that violates"]}`,
       }],
       0,
     );
 
-    logUsage(result.usage, 'relationship_safety_check', userId);
+    logUsage(checkResult.usage, 'relationship_safety_check', userId);
 
-    const cleaned = result.text
+    const cleaned = checkResult.text
       .replace(/^\s*```(?:json)?\s*\n?/i, '')
       .replace(/\n?\s*```\s*$/i, '')
       .trim();
-    return JSON.parse(cleaned);
+    const parsed = JSON.parse(cleaned) as { pass: boolean; violations: string[] };
+
+    if (parsed.pass) {
+      return { text: response, rewritten: false, violations: [] };
+    }
+
+    console.log(`[relationship-safety] Violations found: ${parsed.violations.join(' | ')}`);
+
+    // Step 2: Rewrite with Sonnet
+    const rewriteResult = await callModel(
+      routing.standard, // Sonnet
+      '',
+      [{
+        role: 'user',
+        content: `Rewrite this response to remove all relationship safety violations while keeping the emotional attunement, tone, and helpfulness to the user (${userName}).
+
+VIOLATIONS FOUND:
+${parsed.violations.map((v: string) => `- "${v}"`).join('\n')}
+
+RULES FOR REWRITING:
+- Replace every statement about the absent partner with a reflection of what the USER is experiencing
+- "She's refusing to engage" → "It sounds like you feel shut down when you try to raise this"
+- "He benefits from the arrangement" → "You're feeling like the arrangement works for everyone except you"
+- Keep Jasper's voice — direct, honest, warm
+- Keep the emotional accuracy — don't flatten the response
+- Do NOT add new content or analysis — only transform what's there
+- If removing a violation leaves a gap, replace it with a question to the user about their own experience
+
+ORIGINAL RESPONSE:
+${response}
+
+Return ONLY the rewritten response. No commentary, no explanation.`,
+      }],
+      0.3,
+    );
+
+    logUsage(rewriteResult.usage, 'relationship_safety_rewrite', userId);
+
+    return {
+      text: rewriteResult.text.trim(),
+      rewritten: true,
+      violations: parsed.violations,
+    };
   } catch (err) {
-    console.error('[relationship-safety] Check failed:', err);
-    return { pass: true, violations: [] }; // fail open — don't block on check failure
+    console.error('[relationship-safety] Rewrite failed:', err);
+    // Fail open — send original rather than blocking
+    return { text: response, rewritten: false, violations: [] };
   }
 }
