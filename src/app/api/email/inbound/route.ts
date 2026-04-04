@@ -59,16 +59,23 @@ export async function POST(req: Request): Promise<Response> {
   // Fetch full email body from Resend API
   let replyText = '';
   try {
+    // Received emails use a different API endpoint than sent emails
     const emailResponse = await fetch(
       `https://api.resend.com/emails/${email_id}`,
       { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } },
     );
     const emailData = await emailResponse.json() as Record<string, unknown>;
-    console.log(`[inbound] Email API response keys: ${Object.keys(emailData).join(', ')}`);
-    console.log(`[inbound] Email API text field: ${JSON.stringify(emailData.text || '').slice(0, 200)}`);
-    console.log(`[inbound] Email API html field: ${JSON.stringify(emailData.html || '').slice(0, 200)}`);
-    console.log(`[inbound] Email API body field: ${JSON.stringify(emailData.body || '').slice(0, 200)}`);
-    replyText = extractReplyText((emailData.text as string) || (emailData.html as string) || (emailData.body as string) || '');
+    console.log(`[inbound] Email API keys: ${Object.keys(emailData).join(', ')}`);
+    console.log(`[inbound] Email API status: ${emailResponse.status}`);
+    console.log(`[inbound] Email API snippet: ${JSON.stringify(emailData).slice(0, 400)}`);
+    replyText = extractReplyText(
+      (emailData.text as string) ||
+      (emailData.html as string) ||
+      (emailData.body as string) ||
+      (emailData.text_body as string) ||
+      (emailData.html_body as string) ||
+      ''
+    );
   } catch (err) {
     console.error('[inbound] Failed to fetch email body:', err);
     return Response.json({ error: 'Failed to fetch email' }, { status: 500 });
