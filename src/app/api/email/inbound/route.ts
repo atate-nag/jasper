@@ -28,6 +28,9 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
+  console.log(`[inbound] Webhook type: ${(payload as { type?: string }).type}`);
+  console.log(`[inbound] Webhook data keys: ${Object.keys((payload as { data?: unknown }).data || {}).join(', ')}`);
+
   if ((payload as { type?: string }).type !== 'email.received') {
     return Response.json({ ok: true });
   }
@@ -61,8 +64,12 @@ export async function POST(req: Request): Promise<Response> {
       `https://api.resend.com/emails/${email_id}`,
       { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } },
     );
-    const emailData = await emailResponse.json() as { text?: string; html?: string };
-    replyText = extractReplyText(emailData.text || emailData.html || '');
+    const emailData = await emailResponse.json() as Record<string, unknown>;
+    console.log(`[inbound] Email API response keys: ${Object.keys(emailData).join(', ')}`);
+    console.log(`[inbound] Email API text field: ${JSON.stringify(emailData.text || '').slice(0, 200)}`);
+    console.log(`[inbound] Email API html field: ${JSON.stringify(emailData.html || '').slice(0, 200)}`);
+    console.log(`[inbound] Email API body field: ${JSON.stringify(emailData.body || '').slice(0, 200)}`);
+    replyText = extractReplyText((emailData.text as string) || (emailData.html as string) || (emailData.body as string) || '');
   } catch (err) {
     console.error('[inbound] Failed to fetch email body:', err);
     return Response.json({ error: 'Failed to fetch email' }, { status: 500 });
