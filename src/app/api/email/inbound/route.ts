@@ -28,23 +28,23 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  console.log(`[inbound] Webhook payload: ${JSON.stringify(payload).slice(0, 500)}`);
+  console.log(`[inbound] Webhook received`);
+
+  try {
+
+  const payloadStr = JSON.stringify(payload).slice(0, 500);
+  console.log(`[inbound] Payload: ${payloadStr}`);
 
   if ((payload as { type?: string }).type !== 'email.received') {
     return Response.json({ ok: true });
   }
 
-  const data = payload.data as {
-    email_id: string;
-    from: string;
-    to: string[];
-    subject: string;
-  };
+  const data = (payload as Record<string, unknown>).data as Record<string, unknown>;
+  const email_id = data.email_id as string;
+  const rawFrom = data.from as string;
+  const subject = data.subject as string;
 
-  const { email_id, from: rawFrom, subject } = data;
-
-  // Extract sender email
-  const senderEmail = rawFrom.match(/<(.+)>/)?.[1] || rawFrom.trim();
+  const senderEmail = rawFrom.includes('<') ? rawFrom.match(/<(.+)>/)?.[1] || rawFrom : rawFrom.trim();
   console.log(`[inbound] Sender: ${senderEmail}, email_id: ${email_id}`);
 
   // Look up user by email
@@ -194,6 +194,11 @@ export async function POST(req: Request): Promise<Response> {
   } catch (err) {
     console.error('[inbound] Pipeline error:', err);
     return Response.json({ error: 'Processing failed' }, { status: 500 });
+  }
+
+  } catch (outerErr) {
+    console.error('[inbound] OUTER ERROR:', outerErr);
+    return Response.json({ error: 'Unexpected error' }, { status: 500 });
   }
 }
 
