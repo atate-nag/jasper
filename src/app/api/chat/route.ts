@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const body = await req.json();
-  const { messages: rawMessages = [], previousDirective, openerMessage, relationshipMode: clientRelationshipMode } = body as {
+  const { messages: rawMessages = [], previousDirective, openerMessage, relationshipMode: clientRelationshipMode, searchMode: clientSearchMode } = body as {
     messages?: Array<{
       role: string;
       content?: string;
@@ -33,6 +33,7 @@ export async function POST(req: Request): Promise<Response> {
     previousDirective?: ResponseDirective;
     openerMessage?: string;
     relationshipMode?: boolean;
+    searchMode?: boolean;
   };
 
   // AI SDK v6 sends parts instead of content — extract text from both formats
@@ -176,11 +177,14 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     // Web search path: non-streaming with tools for eligible turns
+    const searchKeywordsDetected = /\b(look up|search|find|what is|who is|who are|what are|what was|what were|latest|recent|this week|came out|article|quote|book called|can you check|do you know|have you heard)\b/i.test(lastUserMessage);
     const searchEligible = !relationshipModeActive &&
-      (d.communicativeIntent === 'requesting_input' ||
-       d.communicativeIntent === 'requesting_action' ||
-       d.communicativeIntent === 'sense_making') &&
-      /\b(look up|search|find|what is|who is|who are|what are|what was|what were|latest|recent|this week|came out|article|quote|book called|can you check|do you know|have you heard)\b/i.test(lastUserMessage);
+      (clientSearchMode === true || (
+        (d.communicativeIntent === 'requesting_input' ||
+         d.communicativeIntent === 'requesting_action' ||
+         d.communicativeIntent === 'sense_making') &&
+        searchKeywordsDetected
+      ));
 
     if (searchEligible) {
       console.log('[chat] WEB SEARCH eligible — non-streaming path');

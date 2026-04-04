@@ -287,7 +287,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: allMessages,
-          relationshipMode: true,
+          ...(relationshipActiveRef.current ? { relationshipMode: true } : { searchMode: true }),
           ...(openerRef.current ? { openerMessage: openerRef.current } : {}),
         }),
       });
