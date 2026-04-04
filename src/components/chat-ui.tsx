@@ -350,7 +350,7 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
     }
 
     // Check for search-triggering keywords
-    const searchKeywords = /\b(look up|search|find|what is|who is|latest|recent|this week|came out|article|quote|book called)\b/i;
+    const searchKeywords = /\b(look up|search|find|what is|who is|who are|what are|what was|what were|latest|recent|this week|came out|article|quote|book called|can you check|do you know|have you heard)\b/i;
     const needsDirectPath = relationshipActiveRef.current || searchKeywords.test(text);
 
     // Direct path for relationship mode or search-eligible turns

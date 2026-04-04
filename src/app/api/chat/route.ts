@@ -180,7 +180,7 @@ export async function POST(req: Request): Promise<Response> {
       (d.communicativeIntent === 'requesting_input' ||
        d.communicativeIntent === 'requesting_action' ||
        d.communicativeIntent === 'sense_making') &&
-      /\b(look up|search|find|what is|who is|latest|recent|this week|came out|article|quote|book called)\b/i.test(lastUserMessage);
+      /\b(look up|search|find|what is|who is|who are|what are|what was|what were|latest|recent|this week|came out|article|quote|book called|can you check|do you know|have you heard)\b/i.test(lastUserMessage);
 
     if (searchEligible) {
       console.log('[chat] WEB SEARCH eligible — non-streaming path');
