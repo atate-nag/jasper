@@ -66,9 +66,12 @@ async function main(): Promise<void> {
   }
 
   // Product signals
-  const signalQuery = days > 0
-    ? sb.from('conversations').select('user_id, started_at, summary').gte('started_at', since.toISOString())
-    : sb.from('conversations').select('user_id, started_at, summary');
+  let signalQuery = sb.from('conversations').select('user_id, started_at, summary');
+  if (days > 0) {
+    const signalSince = new Date();
+    signalSince.setDate(signalSince.getDate() - days);
+    signalQuery = signalQuery.gte('started_at', signalSince.toISOString());
+  }
 
   const { data: signalConvos } = await signalQuery
     .not('summary', 'is', null)
