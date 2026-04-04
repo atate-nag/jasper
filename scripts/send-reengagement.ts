@@ -53,7 +53,8 @@ async function main(): Promise<void> {
         from: 'Jasper <jasper@chatwithj.online>',
         to: draft.email,
         subject: draft.subject,
-        text: draft.body,
+        text: draft.body + '\n\n—\nJasper\nchatwithj.online',
+        replyTo: 'jasper@chatwithj.online',
       });
 
       if (error) {
