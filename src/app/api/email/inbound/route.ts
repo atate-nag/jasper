@@ -62,19 +62,20 @@ export async function POST(req: Request): Promise<Response> {
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
   });
   const receivingData = await resp.json() as Record<string, unknown>;
-  steps.push(`receiving:${resp.status}:keys=${Object.keys(receivingData).join('+')}`);
+  steps.push(`receiving:${resp.status}`);
 
-  // The API returns a raw.download_url — fetch the raw email and extract text
-  const raw = receivingData.raw as { download_url?: string } | null;
-  if (raw?.download_url) {
-    steps.push('downloading_raw');
-    const rawResp = await fetch(raw.download_url);
-    const rawEmail = await rawResp.text();
-    steps.push(`raw=${rawEmail.length}chars`);
+  // The API returns text and html fields directly
+  const emailText = (receivingData.text as string) || '';
+  const emailHtml = (receivingData.html as string) || '';
 
-    // Extract plain text body from raw email (RFC 822 format)
-    replyText = extractBodyFromRawEmail(rawEmail);
-    steps.push(`extracted=${replyText.length}chars`);
+  if (emailText) {
+    replyText = extractReplyText(emailText);
+    steps.push(`text=${replyText.length}chars`);
+  } else if (emailHtml) {
+    // Strip HTML tags as fallback
+    const stripped = emailHtml.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    replyText = extractReplyText(stripped);
+    steps.push(`html_stripped=${replyText.length}chars`);
   }
 
   if (!replyText.trim()) {
