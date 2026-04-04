@@ -55,31 +55,26 @@ export async function POST(req: Request): Promise<Response> {
   }
   steps.push(`user=${user.id.slice(0, 8)}`);
 
-  // Fetch email body — try /content endpoint first
+  // Fetch email body via Resend's received email endpoint
   let replyText = '';
-  let emailApiResult = '';
-  for (const suffix of ['/content', '']) {
-    const url = `https://api.resend.com/emails/${email_id}${suffix}`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    });
-    const emailData = await resp.json() as Record<string, unknown>;
-    emailApiResult = `${suffix || '/base'}:${resp.status}:keys=${Object.keys(emailData).join('+')}`;
-    steps.push(emailApiResult);
+  const receivingUrl = `https://api.resend.com/emails/receiving/${email_id}`;
+  const resp = await fetch(receivingUrl, {
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+  });
+  const receivingData = await resp.json() as Record<string, unknown>;
+  steps.push(`receiving:${resp.status}:keys=${Object.keys(receivingData).join('+')}`);
 
-    const text = (emailData.text as string) ||
-      (emailData.html as string) ||
-      (emailData.body as string) ||
-      (emailData.text_body as string) ||
-      (emailData.html_body as string) ||
-      (emailData.content as string) ||
-      '';
+  // The API returns a raw.download_url — fetch the raw email and extract text
+  const raw = receivingData.raw as { download_url?: string } | null;
+  if (raw?.download_url) {
+    steps.push('downloading_raw');
+    const rawResp = await fetch(raw.download_url);
+    const rawEmail = await rawResp.text();
+    steps.push(`raw=${rawEmail.length}chars`);
 
-    if (text) {
-      replyText = extractReplyText(text);
-      steps.push(`body=${replyText.length}chars`);
-      break;
-    }
+    // Extract plain text body from raw email (RFC 822 format)
+    replyText = extractBodyFromRawEmail(rawEmail);
+    steps.push(`extracted=${replyText.length}chars`);
   }
 
   if (!replyText.trim()) {
@@ -205,4 +200,82 @@ function extractReplyText(text: string): string {
   }
 
   return reply.trim();
+}
+
+// Extract plain text body from a raw RFC 822 email
+function extractBodyFromRawEmail(raw: string): string {
+  // Split headers from body — empty line separates them
+  const headerBodySplit = raw.indexOf('\r\n\r\n');
+  if (headerBodySplit === -1) {
+    const altSplit = raw.indexOf('\n\n');
+    if (altSplit === -1) return '';
+    return extractReplyText(raw.slice(altSplit + 2));
+  }
+
+  const headers = raw.slice(0, headerBodySplit).toLowerCase();
+  let body = raw.slice(headerBodySplit + 4);
+
+  // Check if multipart
+  const boundaryMatch = headers.match(/boundary="?([^"\s;]+)"?/);
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1];
+    const parts = body.split('--' + boundary);
+
+    // Find the text/plain part
+    for (const part of parts) {
+      const partHeaderEnd = part.indexOf('\r\n\r\n') !== -1
+        ? part.indexOf('\r\n\r\n')
+        : part.indexOf('\n\n');
+      if (partHeaderEnd === -1) continue;
+
+      const partHeaders = part.slice(0, partHeaderEnd).toLowerCase();
+      const partBody = part.slice(partHeaderEnd + (part.indexOf('\r\n\r\n') !== -1 ? 4 : 2));
+
+      if (partHeaders.includes('text/plain')) {
+        // Check for base64 encoding
+        if (partHeaders.includes('base64')) {
+          body = Buffer.from(partBody.replace(/\s/g, ''), 'base64').toString('utf-8');
+        } else if (partHeaders.includes('quoted-printable')) {
+          body = partBody.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) =>
+            String.fromCharCode(parseInt(hex, 16))
+          );
+        } else {
+          body = partBody;
+        }
+        return extractReplyText(body);
+      }
+    }
+
+    // No text/plain found — try text/html and strip tags
+    for (const part of parts) {
+      const partHeaderEnd = part.indexOf('\r\n\r\n') !== -1
+        ? part.indexOf('\r\n\r\n')
+        : part.indexOf('\n\n');
+      if (partHeaderEnd === -1) continue;
+
+      const partHeaders = part.slice(0, partHeaderEnd).toLowerCase();
+      const partBody = part.slice(partHeaderEnd + (part.indexOf('\r\n\r\n') !== -1 ? 4 : 2));
+
+      if (partHeaders.includes('text/html')) {
+        let html = partBody;
+        if (partHeaders.includes('base64')) {
+          html = Buffer.from(html.replace(/\s/g, ''), 'base64').toString('utf-8');
+        }
+        // Strip HTML tags
+        const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
+        return extractReplyText(text);
+      }
+    }
+  }
+
+  // Not multipart — check content-transfer-encoding
+  if (headers.includes('base64')) {
+    body = Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf-8');
+  } else if (headers.includes('quoted-printable')) {
+    body = body.replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16))
+    );
+  }
+
+  return extractReplyText(body);
 }
