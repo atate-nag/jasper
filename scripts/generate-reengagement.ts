@@ -112,12 +112,12 @@ ${corrections.length > 0 ? `You made these mistakes: ${corrections.join(', ')}` 
 
 ${sensitive ? 'This person shared sensitive content. Keep it warm and general.' : ''}
 
-Write the email. Reference something specific. If you had a failure, own it. Give them a reason to respond. End with an open door. Keep it short.
-
-Then provide:
+Provide these first:
 SUBJECT: [one line]
 THREAD: [what's actually unresolved]
-RECOMMENDATION: [send / review_carefully / skip]`;
+RECOMMENDATION: [send / review_carefully / skip]
+
+Then write the email after BODY: — reference something specific. If you had a failure, own it. Give them a reason to respond. End with an open door. Keep it short.`;
 
     try {
       const routing = getModelRouting();
