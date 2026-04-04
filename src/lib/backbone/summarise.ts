@@ -41,6 +41,9 @@ Observations you made during the conversation that might matter later but weren'
 7. WHAT'S ONGOING
 What's unresolved? What threads are still live? What should you check in about next time (without being formulaic about it)?
 
+8. PRODUCT SIGNALS FOR ADRIAN (if any)
+Did the user express a wish, frustration, or suggestion about how Jasper works? Things like "I wish you could...", "it would be nice if...", "why can't you...", complaints about missing features, friction they hit, or things they tried to do that didn't work. Include the actual words they used. If nothing surfaced, skip this section entirely — don't fabricate product feedback.
+
 CONSTRAINTS:
 - Write for yourself, not for human review
 - Prioritize relational salience over factual completeness
