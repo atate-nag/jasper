@@ -59,23 +59,33 @@ export async function POST(req: Request): Promise<Response> {
   // Fetch full email body from Resend API
   let replyText = '';
   try {
-    // Received emails use a different API endpoint than sent emails
-    const emailResponse = await fetch(
+    // Try the received emails endpoint first, then fall back to standard
+    for (const url of [
+      `https://api.resend.com/emails/${email_id}/content`,
       `https://api.resend.com/emails/${email_id}`,
-      { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } },
-    );
-    const emailData = await emailResponse.json() as Record<string, unknown>;
-    console.log(`[inbound] Email API keys: ${Object.keys(emailData).join(', ')}`);
-    console.log(`[inbound] Email API status: ${emailResponse.status}`);
-    console.log(`[inbound] Email API snippet: ${JSON.stringify(emailData).slice(0, 400)}`);
-    replyText = extractReplyText(
-      (emailData.text as string) ||
-      (emailData.html as string) ||
-      (emailData.body as string) ||
-      (emailData.text_body as string) ||
-      (emailData.html_body as string) ||
-      ''
-    );
+    ]) {
+      console.log(`[inbound] Trying: ${url}`);
+      const emailResponse = await fetch(url, {
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      });
+      console.log(`[inbound] Status: ${emailResponse.status}`);
+      const emailData = await emailResponse.json() as Record<string, unknown>;
+      console.log(`[inbound] Keys: ${Object.keys(emailData).join(', ')}`);
+      console.log(`[inbound] Data: ${JSON.stringify(emailData).slice(0, 500)}`);
+
+      const text = (emailData.text as string) ||
+        (emailData.html as string) ||
+        (emailData.body as string) ||
+        (emailData.text_body as string) ||
+        (emailData.html_body as string) ||
+        (emailData.content as string) ||
+        '';
+
+      if (text) {
+        replyText = extractReplyText(text);
+        break;
+      }
+    }
   } catch (err) {
     console.error('[inbound] Failed to fetch email body:', err);
     return Response.json({ error: 'Failed to fetch email' }, { status: 500 });
