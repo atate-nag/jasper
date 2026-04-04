@@ -12,7 +12,11 @@ import { logUsage } from '@/lib/usage';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
 import type { Message } from '@/types/message';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 export const maxDuration = 60;
 
@@ -124,7 +128,7 @@ export async function POST(req: Request): Promise<Response> {
     const userName = personContext.profile.identity?.name || senderEmail;
 
     // Send reply email
-    const { error: sendError } = await resend.emails.send({
+    const { error: sendError } = await getResend().emails.send({
       from: 'Jasper <jasper@chatwithj.online>',
       to: senderEmail,
       subject: subject.startsWith('Re:') ? subject : `Re: ${subject}`,
