@@ -97,6 +97,19 @@ async function main(): Promise<void> {
       }
     }
 
+    // Fetch wit segments for this user
+    const { data: witSegments } = await sb
+      .from('conversation_segments')
+      .select('content, conversation_date')
+      .eq('user_id', userId)
+      .eq('segment_type', 'wit')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    const witContext = (witSegments || []).length > 0
+      ? `\n\nMOMENTS THAT LANDED (shared jokes, wit, callbacks):\n${(witSegments || []).map(s => `[${(s.conversation_date as string)?.slice(0, 10)}]: ${s.content}`).join('\n')}`
+      : '';
+
     // Detect sensitive content
     const hasSensitive = summaries.toLowerCase().match(/partner|relationship|ex |divorce|abuse|distress|crisis/);
     const sensitive = !!hasSensitive;
@@ -106,7 +119,7 @@ async function main(): Promise<void> {
 
 You last spoke ${daysSince} days ago.
 
-${summaries}
+${summaries}${witContext}
 
 ${corrections.length > 0 ? `You made these mistakes: ${corrections.join(', ')}` : ''}
 

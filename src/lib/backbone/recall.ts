@@ -116,12 +116,13 @@ SEGMENT TYPES:
 - turning_point: the conversation shifted meaningfully
 - pattern_observed: I noticed a recurring tendency
 - emotional_peak: a moment of high intensity
+- wit: a moment of genuine humour that landed — dry observation, callback, playful exchange. PRESERVE THE ACTUAL LINES. Quote what was said by both sides, not just "we laughed." Include what the person said, what I said, and how they responded. These are gold for re-engagement and relationship memory.
 - routine: minor context (only if nothing more significant happened)
 
 IMPORTANCE SCORING (1-10):
 - 1-3: routine context, minor preferences
 - 4-6: meaningful but not pivotal
-- 7-8: significant disclosure, major reframe, important pattern
+- 7-8: significant disclosure, major reframe, important pattern, wit that deepened the connection
 - 9-10: fundamental shift in understanding
 
 Extract 3-8 segments. Don't force extraction if nothing significant happened.
