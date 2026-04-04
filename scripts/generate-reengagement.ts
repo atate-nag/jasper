@@ -101,52 +101,23 @@ async function main(): Promise<void> {
     const hasSensitive = summaries.toLowerCase().match(/partner|relationship|ex |divorce|abuse|distress|crisis/);
     const sensitive = !!hasSensitive;
 
-    // Generate draft with Opus + web search
-    const prompt = `You are Jasper, writing a follow-up email to ${name}.
+    // Generate draft with Opus + web search — minimal prompt, trust Jasper's voice
+    const prompt = `Write a follow-up email to ${name}.
 
-You last spoke ${daysSince} days ago. Here are your conversation summaries:
+You last spoke ${daysSince} days ago.
 
 ${summaries}
 
-${corrections.length > 0 ? `KNOWN ISSUES IN YOUR CONVERSATIONS:\n${corrections.join('\n')}\nIf relevant, acknowledge these honestly in the email.` : ''}
+${corrections.length > 0 ? `You made these mistakes: ${corrections.join(', ')}` : ''}
 
-${sensitive ? `SENSITIVE CONTENT FLAG: This person discussed relationship difficulties or emotional content. Do NOT reference specific relationship details, partners, or emotional situations. Keep the follow-up warm but general about their wellbeing. Let THEM decide what to bring back.` : ''}
+${sensitive ? 'This person shared sensitive content. Keep it warm and general.' : ''}
 
-WEB SEARCH: You have access to web search. If the conversation summaries reference specific books, quotes, articles, events, or topics you're unsure about, SEARCH for them to enrich your follow-up with accurate, specific references. Don't guess — look it up.
+Write the email. Reference something specific. If you had a failure, own it. Give them a reason to respond. End with an open door. Keep it short.
 
-NEW FEATURES: Since ${name} last used Jasper, Adrian has added several improvements they might find relevant. Mention 1-2 that connect to how they used the product — don't list them all, just the ones that matter for this person:
-- Conversation history now persists — you can see your previous conversation when you return
-- Jasper can now search the web during conversations to look things up, verify quotes, find references
-- Improved recall — Jasper is better at remembering recent conversations (recency boost for last 48h)
-- Markdown formatting in responses — better readability for longer responses
-- Voice input improvements — faster transcription via native browser speech recognition
-
-Frame these naturally as "by the way, I can now..." not as a feature announcement.
-
-TASK: Write a follow-up email that:
-
-1. References the specific thing they were working on (not generically)
-2. Shows you've been thinking about it (not just remembering)
-3. If you had any failures (bad recall, premature depth, corrections they made), acknowledge one honestly
-4. Gives them a specific reason to come back — a question, an observation, something that continues the thread
-5. Is 3-5 paragraphs, warm but not sycophantic
-6. Reads like a colleague who's been mulling over your problem, not a CRM drip
-7. Ends with a low-pressure invitation to continue
-8. Naturally mentions 1-2 new features relevant to this person
-
-${sensitive ? 'For this person, keep it lighter. Ask how they are doing generally. Do not reopen specific emotional topics.' : ''}
-
-ALSO generate:
-- A subject line (short, specific, not clickbait)
-- A one-sentence summary of what thread you identified as most important
-- Whether you recommend sending this (send / review_carefully / skip)
-
-Format your response as:
-SUBJECT: [subject line]
-THREAD: [one-sentence thread identification]
-RECOMMENDATION: [send / review_carefully / skip]
-BODY:
-[the email body]`;
+Then provide:
+SUBJECT: [one line]
+THREAD: [what's actually unresolved]
+RECOMMENDATION: [send / review_carefully / skip]`;
 
     try {
       const routing = getModelRouting();
