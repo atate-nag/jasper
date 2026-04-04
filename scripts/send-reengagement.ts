@@ -54,7 +54,7 @@ async function main(): Promise<void> {
         to: draft.email,
         subject: draft.subject,
         text: draft.body + '\n\n—\nJasper\nchatwithj.online',
-        replyTo: 'jasper@reply.chatwithj.online',
+        replyTo: 'adrian.p.tate@gmail.com', // Manual relay until inbound email body retrieval is solved
       });
 
       if (error) {
