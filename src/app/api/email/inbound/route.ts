@@ -28,77 +28,62 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  console.log(`[inbound] Webhook received, type=${(payload as Record<string, unknown>).type}, from=${((payload as Record<string, unknown>).data as Record<string, unknown>)?.from || 'unknown'}`);
-
-  try {
-
   if ((payload as { type?: string }).type !== 'email.received') {
+    console.log(`[inbound] Ignoring non-received event: ${(payload as { type?: string }).type}`);
     return Response.json({ ok: true });
   }
+
+  const steps: string[] = ['webhook_received'];
+
+  try {
 
   const data = (payload as Record<string, unknown>).data as Record<string, unknown>;
   const email_id = data.email_id as string;
   const rawFrom = data.from as string;
   const subject = data.subject as string;
-
   const senderEmail = rawFrom.includes('<') ? rawFrom.match(/<(.+)>/)?.[1] || rawFrom : rawFrom.trim();
-  console.log(`[inbound] Sender: ${senderEmail}, email_id: ${email_id}`);
+  steps.push(`sender=${senderEmail}`);
 
-  // Look up user by email
+  // Look up user
   const sb = getSupabaseAdmin();
-  let user: { id: string; email?: string } | undefined;
-  try {
-    const { data: authData } = await sb.auth.admin.listUsers();
-    user = authData.users.find(u => u.email === senderEmail);
-  } catch (err) {
-    console.error('[inbound] User lookup failed:', err);
-    return Response.json({ error: 'User lookup failed' }, { status: 500 });
-  }
+  const { data: authData } = await sb.auth.admin.listUsers();
+  const user = authData.users.find(u => u.email === senderEmail);
 
   if (!user) {
-    console.log(`[inbound] Unknown sender: ${senderEmail}`);
+    console.log(`[inbound] ${steps.join(' → ')} → unknown_sender`);
     return Response.json({ ok: true });
   }
+  steps.push(`user=${user.id.slice(0, 8)}`);
 
-  console.log(`[inbound] User found: ${user.id.slice(0, 8)}`);
-
-  // Fetch full email body from Resend API
+  // Fetch email body — try /content endpoint first
   let replyText = '';
-  try {
-    // Try the received emails endpoint first, then fall back to standard
-    for (const url of [
-      `https://api.resend.com/emails/${email_id}/content`,
-      `https://api.resend.com/emails/${email_id}`,
-    ]) {
-      console.log(`[inbound] Trying: ${url}`);
-      const emailResponse = await fetch(url, {
-        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-      });
-      console.log(`[inbound] Status: ${emailResponse.status}`);
-      const emailData = await emailResponse.json() as Record<string, unknown>;
-      console.log(`[inbound] Keys: ${Object.keys(emailData).join(', ')}`);
-      console.log(`[inbound] Data: ${JSON.stringify(emailData).slice(0, 500)}`);
+  let emailApiResult = '';
+  for (const suffix of ['/content', '']) {
+    const url = `https://api.resend.com/emails/${email_id}${suffix}`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+    });
+    const emailData = await resp.json() as Record<string, unknown>;
+    emailApiResult = `${suffix || '/base'}:${resp.status}:keys=${Object.keys(emailData).join('+')}`;
+    steps.push(emailApiResult);
 
-      const text = (emailData.text as string) ||
-        (emailData.html as string) ||
-        (emailData.body as string) ||
-        (emailData.text_body as string) ||
-        (emailData.html_body as string) ||
-        (emailData.content as string) ||
-        '';
+    const text = (emailData.text as string) ||
+      (emailData.html as string) ||
+      (emailData.body as string) ||
+      (emailData.text_body as string) ||
+      (emailData.html_body as string) ||
+      (emailData.content as string) ||
+      '';
 
-      if (text) {
-        replyText = extractReplyText(text);
-        break;
-      }
+    if (text) {
+      replyText = extractReplyText(text);
+      steps.push(`body=${replyText.length}chars`);
+      break;
     }
-  } catch (err) {
-    console.error('[inbound] Failed to fetch email body:', err);
-    return Response.json({ error: 'Failed to fetch email' }, { status: 500 });
   }
 
   if (!replyText.trim()) {
-    console.log(`[inbound] Empty reply from ${senderEmail}`);
+    console.log(`[inbound] ${steps.join(' → ')} → empty_body`);
     return Response.json({ ok: true });
   }
 
