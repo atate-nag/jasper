@@ -10,7 +10,7 @@ import { setObserveData } from '@/app/api/observe/route';
 import { getOrCreateConversation, handlePostResponse } from '@/lib/post-response';
 import { logUsage } from '@/lib/usage';
 import { relationshipSafetyRewrite } from '@/lib/intermediary/relationship-safety';
-import { callModel } from '@/lib/model-client';
+import { callModel, WEB_SEARCH_TOOL } from '@/lib/model-client';
 import { getModelRouting } from '@/lib/config/models';
 
 export const maxDuration = 60;
@@ -175,7 +175,50 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    // Normal streaming path (no relationship mode)
+    // Web search path: non-streaming with tools for eligible turns
+    const searchEligible = !relationshipModeActive &&
+      (d.communicativeIntent === 'requesting_input' ||
+       d.communicativeIntent === 'requesting_action' ||
+       d.communicativeIntent === 'sense_making') &&
+      /\b(look up|search|find|what is|who is|latest|recent|this week|came out|article|quote|book called)\b/i.test(lastUserMessage);
+
+    if (searchEligible) {
+      console.log('[chat] WEB SEARCH eligible — non-streaming path');
+      const routing = getModelRouting();
+      const searchResult = await callModel(
+        routing[steering.modelConfig.tier],
+        steering.systemPrompt + '\n\nWEB SEARCH: You have access to web search. Use it when you need to verify facts or find specific information the user is asking about. When citing search results, be natural: "I looked that up —" not "According to my search results." You\'re a friend who checked something, not a search engine.',
+        llmMessages,
+        steering.modelConfig.temperature,
+        WEB_SEARCH_TOOL,
+      );
+
+      const responseLatencyMs = Date.now() - responseStart;
+      logUsage(searchResult.usage, 'chat_search', user.id, conversationId, responseLatencyMs);
+
+      setObserveData(user.id, {
+        intent: d.communicativeIntent, valence: d.emotionalValence, arousal: d.emotionalArousal,
+        posture: d.recommendedPostureClass, length: d.recommendedResponseLength,
+        challenge: d.challengeAppropriate, dispreferred: d.dispreferred,
+        confidence: d.confidence, rationale: d.rationale,
+        policy: steering.selectedPolicy.id, model: steering.modelConfig.model,
+        tier: steering.modelConfig.tier, temperature: steering.modelConfig.temperature,
+        maxTokens: steering.modelConfig.maxTokens, recallTier: d.recallTier,
+        recallQuery: d.recallQuery, steerLatencyMs,
+      });
+
+      handlePostResponse(
+        user.id, conversationId, sessionHistory,
+        lastUserMessage, searchResult.text, steering, responseLatencyMs, userName,
+      ).catch(console.error);
+
+      return Response.json(
+        { role: 'assistant', content: searchResult.text },
+        { headers: { 'X-Jasper-Non-Streamed': 'true', 'X-Jasper-Web-Search': 'true' } },
+      );
+    }
+
+    // Normal streaming path (no relationship mode, no search)
     const result = streamText({
       model: anthropic(steering.modelConfig.model),
       system: steering.systemPrompt,

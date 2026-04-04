@@ -349,9 +349,12 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
       relationshipActiveRef.current = true;
     }
 
-    // Once relationship mode is active, ALL turns use the direct path
-    // This prevents split-brain between useChat and direct fetch
-    if (relationshipActiveRef.current) {
+    // Check for search-triggering keywords
+    const searchKeywords = /\b(look up|search|find|what is|who is|latest|recent|this week|came out|article|quote|book called)\b/i;
+    const needsDirectPath = relationshipActiveRef.current || searchKeywords.test(text);
+
+    // Direct path for relationship mode or search-eligible turns
+    if (needsDirectPath) {
       handleRelationshipSubmit(text);
     } else {
       sendMessage({ text });

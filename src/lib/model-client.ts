@@ -21,11 +21,21 @@ export interface ModelResult {
   usage: TokenUsage;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ToolConfig = Array<Record<string, any>>;
+
+export const WEB_SEARCH_TOOL: ToolConfig = [{
+  type: 'web_search_20250305',
+  name: 'web_search',
+  max_uses: 3,
+}];
+
 export async function callModel(
   config: ProviderModelConfig,
   systemPrompt: string,
   messages: Array<{ role: string; content: string }>,
   temperature?: number,
+  tools?: ToolConfig,
 ): Promise<ModelResult> {
   const temp = temperature ?? config.defaultTemperature;
 
@@ -39,7 +49,9 @@ export async function callModel(
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...(tools?.length ? { tools } : {}),
+    } as any);
 
     const text = response.content
       .filter(b => b.type === 'text')

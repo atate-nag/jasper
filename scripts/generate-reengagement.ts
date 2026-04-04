@@ -7,7 +7,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import { createClient } from '@supabase/supabase-js';
-import { callModel } from '../src/lib/model-client';
+import { callModel, WEB_SEARCH_TOOL } from '../src/lib/model-client';
 import { logUsage } from '../src/lib/usage';
 import { getModelRouting } from '../src/lib/config/models';
 import { writeFileSync } from 'fs';
@@ -142,6 +142,7 @@ BODY:
         '',
         [{ role: 'user', content: prompt }],
         0.5,
+        WEB_SEARCH_TOOL,
       );
 
       logUsage(result.usage, 'reengagement_draft', userId);
