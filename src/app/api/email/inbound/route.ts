@@ -28,8 +28,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  console.log(`[inbound] Webhook type: ${(payload as { type?: string }).type}`);
-  console.log(`[inbound] Webhook data keys: ${Object.keys((payload as { data?: unknown }).data || {}).join(', ')}`);
+  console.log(`[inbound] Webhook payload: ${JSON.stringify(payload).slice(0, 500)}`);
 
   if ((payload as { type?: string }).type !== 'email.received') {
     return Response.json({ ok: true });
