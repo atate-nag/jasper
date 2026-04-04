@@ -45,16 +45,25 @@ export async function POST(req: Request): Promise<Response> {
 
   // Extract sender email
   const senderEmail = rawFrom.match(/<(.+)>/)?.[1] || rawFrom.trim();
+  console.log(`[inbound] Sender: ${senderEmail}, email_id: ${email_id}`);
 
   // Look up user by email
-  const sb = getSupabaseAdmin();
-  const { data: { users } } = await sb.auth.admin.listUsers();
-  const user = users.find(u => u.email === senderEmail);
+  let user: { id: string; email?: string } | undefined;
+  try {
+    const sb = getSupabaseAdmin();
+    const { data: authData } = await sb.auth.admin.listUsers();
+    user = authData.users.find(u => u.email === senderEmail);
+  } catch (err) {
+    console.error('[inbound] User lookup failed:', err);
+    return Response.json({ error: 'User lookup failed' }, { status: 500 });
+  }
 
   if (!user) {
     console.log(`[inbound] Unknown sender: ${senderEmail}`);
     return Response.json({ ok: true });
   }
+
+  console.log(`[inbound] User found: ${user.id.slice(0, 8)}`);
 
   // Fetch full email body from Resend API
   let replyText = '';
