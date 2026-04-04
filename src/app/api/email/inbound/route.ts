@@ -129,7 +129,7 @@ export async function POST(req: Request): Promise<Response> {
       to: senderEmail,
       subject: subject.startsWith('Re:') ? subject : `Re: ${subject}`,
       text: responseText + '\n\n—\nJasper\nchatwithj.online',
-      replyTo: 'jasper@chatwithj.online',
+      replyTo: 'jasper@reply.chatwithj.online',
     });
 
     if (sendError) {
