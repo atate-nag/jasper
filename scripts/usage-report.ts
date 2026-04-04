@@ -64,6 +64,35 @@ async function main(): Promise<void> {
     console.log(`  First: ${stats.firstSeen.slice(0, 16)} | Last: ${stats.lastSeen.slice(0, 16)}`);
     console.log();
   }
+
+  // Product signals
+  const signalQuery = days > 0
+    ? sb.from('conversations').select('user_id, started_at, summary').gte('started_at', since.toISOString())
+    : sb.from('conversations').select('user_id, started_at, summary');
+
+  const { data: signalConvos } = await signalQuery
+    .not('summary', 'is', null)
+    .order('started_at', { ascending: false });
+
+  const signals = (signalConvos || []).filter(c => {
+    const s = (c.summary as string) || '';
+    return s.includes('PRODUCT SIGNALS') && !s.includes('skip this section');
+  });
+
+  if (signals.length > 0) {
+    console.log(`${'='.repeat(50)}`);
+    console.log(`PRODUCT SIGNALS (${signals.length} sessions)\n`);
+    for (const c of signals) {
+      const summary = c.summary as string;
+      const signalStart = summary.indexOf('PRODUCT SIGNALS');
+      if (signalStart === -1) continue;
+      const signalText = summary.slice(signalStart).split(/\n\n(?=\d+\.|\*\*|##)/)[0];
+      const userEmail = emailMap[c.user_id as string] || (c.user_id as string).slice(0, 8);
+      console.log(`${userEmail} (${(c.started_at as string).slice(0, 16)}):`);
+      console.log(`  ${signalText.replace(/\n/g, '\n  ')}`);
+      console.log();
+    }
+  }
 }
 
 main().catch(console.error);
