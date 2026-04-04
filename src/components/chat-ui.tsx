@@ -292,8 +292,9 @@ export function ChatUI({ isClone = false, isFirstVisit = false, userName = null 
         }),
       });
 
-      if (res.headers.get('X-Jasper-Non-Streamed') === 'true') {
-        // Non-streamed relationship mode response
+      const contentType = res.headers.get('Content-Type') || '';
+      if (contentType.includes('application/json')) {
+        // Non-streamed response (relationship mode or search mode)
         const data = await res.json();
         setVoiceMessages(prev =>
           prev.map(m => m.id === assistantMsgId
