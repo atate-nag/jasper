@@ -48,9 +48,9 @@ export async function POST(req: Request): Promise<Response> {
   console.log(`[inbound] Sender: ${senderEmail}, email_id: ${email_id}`);
 
   // Look up user by email
+  const sb = getSupabaseAdmin();
   let user: { id: string; email?: string } | undefined;
   try {
-    const sb = getSupabaseAdmin();
     const { data: authData } = await sb.auth.admin.listUsers();
     user = authData.users.find(u => u.email === senderEmail);
   } catch (err) {
