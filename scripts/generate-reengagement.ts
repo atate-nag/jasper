@@ -51,8 +51,9 @@ async function main(): Promise<void> {
     const email = authData?.user?.email;
     if (!email) continue;
 
-    // Skip master account
-    if (email === 'adrian.p.tate@gmail.com') continue;
+    // Only real users — skip master, test accounts, and demo accounts
+    const realUsers = ['lyndskhan09@hotmail.co.uk', 'ctc@human-dynamics.io', 'partner@sandramolies.com', 'wesmol2024@hotmail.com'];
+    if (!realUsers.includes(email)) continue;
 
     // Get last conversation
     const { data: lastConv } = await sb
@@ -100,7 +101,7 @@ async function main(): Promise<void> {
     const hasSensitive = summaries.toLowerCase().match(/partner|relationship|ex |divorce|abuse|distress|crisis/);
     const sensitive = !!hasSensitive;
 
-    // Generate draft with Opus
+    // Generate draft with Opus + web search
     const prompt = `You are Jasper, writing a follow-up email to ${name}.
 
 You last spoke ${daysSince} days ago. Here are your conversation summaries:
@@ -111,6 +112,17 @@ ${corrections.length > 0 ? `KNOWN ISSUES IN YOUR CONVERSATIONS:\n${corrections.j
 
 ${sensitive ? `SENSITIVE CONTENT FLAG: This person discussed relationship difficulties or emotional content. Do NOT reference specific relationship details, partners, or emotional situations. Keep the follow-up warm but general about their wellbeing. Let THEM decide what to bring back.` : ''}
 
+WEB SEARCH: You have access to web search. If the conversation summaries reference specific books, quotes, articles, events, or topics you're unsure about, SEARCH for them to enrich your follow-up with accurate, specific references. Don't guess — look it up.
+
+NEW FEATURES: Since ${name} last used Jasper, Adrian has added several improvements they might find relevant. Mention 1-2 that connect to how they used the product — don't list them all, just the ones that matter for this person:
+- Conversation history now persists — you can see your previous conversation when you return
+- Jasper can now search the web during conversations to look things up, verify quotes, find references
+- Improved recall — Jasper is better at remembering recent conversations (recency boost for last 48h)
+- Markdown formatting in responses — better readability for longer responses
+- Voice input improvements — faster transcription via native browser speech recognition
+
+Frame these naturally as "by the way, I can now..." not as a feature announcement.
+
 TASK: Write a follow-up email that:
 
 1. References the specific thing they were working on (not generically)
@@ -120,6 +132,7 @@ TASK: Write a follow-up email that:
 5. Is 3-5 paragraphs, warm but not sycophantic
 6. Reads like a colleague who's been mulling over your problem, not a CRM drip
 7. Ends with a low-pressure invitation to continue
+8. Naturally mentions 1-2 new features relevant to this person
 
 ${sensitive ? 'For this person, keep it lighter. Ask how they are doing generally. Do not reopen specific emotional topics.' : ''}
 
