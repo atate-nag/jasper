@@ -1,0 +1,134 @@
+// Platform policy selector — generic policy matching with product-specific overrides.
+
+import type { ResponseDirective, Policy, RelationalDepth, PostureClass, PolicySelectionOverride } from './types';
+import type { ConversationState } from './conversation-tracker';
+import type { PersonContext } from '@/lib/backbone/types';
+
+function getRelationalDepth(ctx: PersonContext): RelationalDepth {
+  const count = ctx.relationshipMeta.conversationCount;
+  if (count <= 1) return 'first_encounter';
+  if (count <= 5) return 'early';
+  if (count <= 15) return 'developing';
+  return 'established';
+}
+
+export interface PolicySelectionContext {
+  careContextActive?: boolean;
+  witClusterActive?: boolean;
+}
+
+export function selectPolicy(
+  directive: ResponseDirective,
+  personContext: PersonContext,
+  policyLibrary: Policy[],
+  conversationState?: ConversationState,
+  selectionContext?: PolicySelectionContext,
+  overrides?: PolicySelectionOverride[],
+): Policy {
+  const depth = getRelationalDepth(personContext);
+  let postureClass: PostureClass = directive.recommendedPostureClass;
+
+  // Apply product-specific posture overrides
+  if (overrides) {
+    for (const override of overrides) {
+      const result = override(postureClass, directive, {
+        relationalDepth: depth,
+        conversationState: conversationState || {} as ConversationState,
+        careContextActive: selectionContext?.careContextActive || false,
+      });
+      if (result !== null) {
+        postureClass = result;
+      }
+    }
+  }
+
+  // 1. Filter by posture class — STRICT, never cross classes
+  let candidates = policyLibrary.filter(p => p.posture_class === postureClass);
+
+  if (candidates.length === 0) {
+    console.warn(`[policy-selector] No policies for posture class: ${postureClass}`);
+    candidates = policyLibrary.filter(p => p.posture_class === 'warm_reflective');
+    if (candidates.length === 0) {
+      return {
+        id: 'fallback-warm',
+        name: 'Fallback Warm Reflective',
+        posture_class: 'warm_reflective',
+        relational_depth_range: ['first_encounter', 'early', 'developing', 'established'],
+        system_prompt_fragment: 'Respond warmly and reflectively. Show that you heard them before doing anything else.',
+        response_structure: {
+          opening_move: 'simple_reflection',
+          development_approach: 'reflect_then_observe',
+          closing_move: 'gentle_question_or_silence',
+          dispreferred: false,
+        },
+        constraints: {
+          max_length: 'medium',
+          reflection_minimum: true,
+          challenge_permitted: false,
+          humour_permitted: true,
+        },
+      };
+    }
+  }
+
+  // 2. Prefer policies matching relational depth
+  const depthMatches = candidates.filter(p =>
+    p.relational_depth_range.includes(depth) || p.relational_depth_range.includes('any')
+  );
+  if (depthMatches.length > 0) candidates = depthMatches;
+
+  // 2.7 Conversation-development mode: prefer conversation-aware policies
+  if (conversationState?.conversationDevelopmentMode && candidates.length > 1) {
+    const convAware = candidates.filter(p => p.conversation_aware === true);
+    if (convAware.length > 0) candidates = convAware;
+  }
+
+  // 2.5. Exclude distress policy unless intent is actually distress
+  if (directive.communicativeIntent !== 'distress') {
+    const nonDistress = candidates.filter(p => !p.id.includes('distress'));
+    if (nonDistress.length > 0) candidates = nonDistress;
+  }
+
+  // 3. Refine based on directive specifics
+  if (candidates.length > 1) {
+    if (postureClass === 'warm_reflective') {
+      if (directive.communicativeIntent === 'venting') {
+        const ventingVariants = candidates.filter(p => p.id.includes('venting'));
+        if (ventingVariants.length > 0) candidates = ventingVariants;
+      } else if (directive.communicativeIntent === 'connecting' ||
+          (directive.emotionalArousal < 0.3 && directive.emotionalValence > 0.2)) {
+        const lightVariants = candidates.filter(p =>
+          p.id.includes('connecting') || p.id.includes('light')
+        );
+        if (lightVariants.length > 0) candidates = lightVariants;
+      }
+    }
+
+    if (postureClass === 'exploratory') {
+      if (!directive.dispreferred && !directive.challengeAppropriate &&
+          (directive.communicativeIntent === 'connecting' || directive.communicativeIntent === 'sense_making')) {
+        const curiousVariants = candidates.filter(p =>
+          p.id.includes('curious') || p.id.includes('intellectual')
+        );
+        if (curiousVariants.length > 0) candidates = curiousVariants;
+      }
+    }
+
+    if (directive.challengeAppropriate) {
+      const challengeVariants = candidates.filter(p => p.constraints.challenge_permitted);
+      if (challengeVariants.length > 0) candidates = challengeVariants;
+    }
+
+    if (directive.dispreferred) {
+      const disprefVariants = candidates.filter(p => p.response_structure.dispreferred);
+      if (disprefVariants.length > 0) candidates = disprefVariants;
+    }
+
+    const lengthMatches = candidates.filter(p =>
+      p.constraints.max_length === directive.recommendedResponseLength
+    );
+    if (lengthMatches.length > 0) candidates = lengthMatches;
+  }
+
+  return candidates[0];
+}

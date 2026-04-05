@@ -1,45 +1,19 @@
-// Relationship safety: detection, relationship mode directive, post-generation rewrite.
-// Replaces all previous escalating injection layers with two clean mechanisms.
+// Re-exported from platform with Jasper-specific directive text.
+// See src/lib/platform/relationship-safety.ts for the generic implementation.
 
-import { callModel } from '@/lib/model-client';
-import { logUsage } from '@/lib/usage';
-import { getModelRouting } from '@/lib/config/models';
-import type { PromptComponent } from './prompt-assembler';
-import type { ConversationState } from './conversation-tracker';
-import type { Message } from '@/types/message';
+import {
+  detectRelationshipContext as _detect,
+  updateRelationshipTurnCount as _update,
+  buildRelationshipInjection as _build,
+  relationshipSafetyRewrite as _rewrite,
+} from '@/lib/platform/relationship-safety';
+import type { ConversationState, PromptComponent } from '@/lib/platform/types';
 
-// ── Detection ─────────────────────────────────────────────────
+export { detectRelationshipContext } from '@/lib/platform/relationship-safety';
+export { updateRelationshipTurnCount } from '@/lib/platform/relationship-safety';
 
-const RELATIONSHIP_SIGNALS = /\b(partner|wife|husband|boyfriend|girlfriend|my ex|she said|he said|she thinks|he thinks|she doesn'?t|he doesn'?t|she won'?t|he won'?t|she feels|he feels|she wants|he wants|told me|accused me|blocked me|called me|says I|my family|my partner|my spouse|the divorce|custody|separated|the kids|co-?parent|his solicitor|her solicitor|settlement|he always|she always|he never|she never)\b/i;
-
-export function detectRelationshipContext(
-  userMessage: string,
-  sessionHistory: Message[],
-): boolean {
-  if (RELATIONSHIP_SIGNALS.test(userMessage)) return true;
-  return sessionHistory.slice(-6).some(m =>
-    m.role === 'user' && RELATIONSHIP_SIGNALS.test(m.content)
-  );
-}
-
-export function updateRelationshipTurnCount(
-  state: ConversationState,
-  isActive: boolean,
-): ConversationState {
-  if (isActive) {
-    return { ...state, relationshipTurnCount: state.relationshipTurnCount + 1 };
-  }
-  // Decrement toward reset — relationships don't stop being the topic
-  // just because one message doesn't mention a keyword
-  if (state.relationshipTurnCount > 0) {
-    return { ...state, relationshipTurnCount: Math.max(0, state.relationshipTurnCount - 1) };
-  }
-  return state;
-}
-
-// ── Mechanism 1: Relationship Mode Directive ──────────────────
-
-const RELATIONSHIP_MODE_DIRECTIVE = `RELATIONSHIP MODE — ACTIVE
+// Jasper's relationship mode directive text
+const JASPER_RELATIONSHIP_MODE_DIRECTIVE = `RELATIONSHIP MODE — ACTIVE
 
 You are still Jasper. Your personality, directness, and pattern-naming ability are intact. But your function is narrowed.
 
@@ -76,128 +50,24 @@ You CANNOT say "she keeps shutting down the conversation." That's naming HER pat
 
 NEVER lead toward ending or staying. That is not your decision or your recommendation to make. If the user asks "should I leave?" your answer is: "That's not something I can answer for you. What I can help with is making sure you're making that decision from clarity about what you need, not from frustration about what you're not getting."`;
 
-const SELF_AWARE_INTERVENTION = `IMPORTANT: You have been listening to one side of this relationship for many turns. In your NEXT response, naturally acknowledge your limitation. Say something like:
+const JASPER_SELF_AWARE_INTERVENTION = `IMPORTANT: You have been listening to one side of this relationship for many turns. In your NEXT response, naturally acknowledge your limitation. Say something like:
 
 "I want to be honest — I've been listening to your side of this for a while, and I can feel myself forming opinions about someone I've never met. That's not fair to them. I don't know what they're experiencing or what they're afraid of. Can we stay with what you need and what you want to communicate, rather than me trying to figure out what's going on with them?"
 
 Say this IN YOUR OWN WORDS — don't recite it verbatim. Make it natural. Then continue the conversation from that reframed position.`;
 
+// Backward-compatible wrapper — pre-fills Jasper's directive text
 export function buildRelationshipInjection(
   state: ConversationState,
 ): PromptComponent[] {
-  const components: PromptComponent[] = [];
-  const count = state.relationshipTurnCount;
-
-  if (count < 1) return components;
-
-  // Relationship mode replaces the policy directive
-  components.push({
-    priority: 99,
-    content: RELATIONSHIP_MODE_DIRECTIVE,
-    label: 'relationship_mode',
-    tokenEstimate: 400,
-  });
-
-  // Self-aware intervention at turn 8+ (fires once)
-  if (count >= 8 && !state.relationshipInterventionFired) {
-    components.push({
-      priority: 99,
-      content: SELF_AWARE_INTERVENTION,
-      label: 'relationship_intervention',
-      tokenEstimate: 120,
-    });
-  }
-
-  return components;
+  return _build(state, JASPER_RELATIONSHIP_MODE_DIRECTIVE, JASPER_SELF_AWARE_INTERVENTION);
 }
 
-// ── Mechanism 2: Post-Generation Rewrite ──────────────────────
-
+// Backward-compatible wrapper — pre-fills Jasper's voice description
 export async function relationshipSafetyRewrite(
   response: string,
   userName: string,
   userId?: string,
 ): Promise<{ text: string; rewritten: boolean; violations: string[] }> {
-  try {
-    const routing = getModelRouting();
-
-    // Step 1: Check with Haiku
-    const checkResult = await callModel(
-      routing.classification, // Haiku
-      '',
-      [{
-        role: 'user',
-        content: `Check this AI response for relationship safety violations.
-
-A violation is ANY sentence where an absent partner is:
-- The grammatical subject doing something to the user
-- Characterised in terms of their motives or psychology
-- Framed as "the problem" in the relationship
-- Used as the basis for suggesting the relationship should end
-
-Also flag any sentence that could not be said in front of BOTH partners without being unfair to one of them.
-
-RESPONSE:
-${response}
-
-Return JSON: {"pass": true, "violations": []}
-or: {"pass": false, "violations": ["exact sentence that violates"]}`,
-      }],
-      0,
-    );
-
-    logUsage(checkResult.usage, 'relationship_safety_check', userId);
-
-    const cleaned = checkResult.text
-      .replace(/^\s*```(?:json)?\s*\n?/i, '')
-      .replace(/\n?\s*```\s*$/i, '')
-      .trim();
-    const parsed = JSON.parse(cleaned) as { pass: boolean; violations: string[] };
-
-    if (parsed.pass) {
-      return { text: response, rewritten: false, violations: [] };
-    }
-
-    console.log(`[relationship-safety] Violations found: ${parsed.violations.join(' | ')}`);
-
-    // Step 2: Rewrite with Sonnet
-    const rewriteResult = await callModel(
-      routing.standard, // Sonnet
-      '',
-      [{
-        role: 'user',
-        content: `Rewrite this response to remove all relationship safety violations while keeping the emotional attunement, tone, and helpfulness to the user (${userName}).
-
-VIOLATIONS FOUND:
-${parsed.violations.map((v: string) => `- "${v}"`).join('\n')}
-
-RULES FOR REWRITING:
-- Replace every statement about the absent partner with a reflection of what the USER is experiencing
-- "She's refusing to engage" → "It sounds like you feel shut down when you try to raise this"
-- "He benefits from the arrangement" → "You're feeling like the arrangement works for everyone except you"
-- Keep Jasper's voice — direct, honest, warm
-- Keep the emotional accuracy — don't flatten the response
-- Do NOT add new content or analysis — only transform what's there
-- If removing a violation leaves a gap, replace it with a question to the user about their own experience
-
-ORIGINAL RESPONSE:
-${response}
-
-Return ONLY the rewritten response. No commentary, no explanation.`,
-      }],
-      0.3,
-    );
-
-    logUsage(rewriteResult.usage, 'relationship_safety_rewrite', userId);
-
-    return {
-      text: rewriteResult.text.trim(),
-      rewritten: true,
-      violations: parsed.violations,
-    };
-  } catch (err) {
-    console.error('[relationship-safety] Rewrite failed:', err);
-    // Fail open — send original rather than blocking
-    return { text: response, rewritten: false, violations: [] };
-  }
+  return _rewrite(response, userName, 'direct, honest, warm', userId);
 }
