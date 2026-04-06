@@ -25,6 +25,7 @@ export interface RecallRequest {
   timeWindow?: { after: Date; before: Date };
   topicFilter?: string[];
   includeEmotionalContext: boolean;
+  product?: string;
 }
 
 export interface RecallResult {
@@ -194,6 +195,7 @@ async function insertSegment(
   segment: SegmentExtraction,
   embedding: number[],
   conversationDate: Date,
+  product: string = 'jasper',
 ): Promise<void> {
   const { error } = await getSupabaseAdmin().from('conversation_segments').insert({
     conversation_id: conversationId,
@@ -207,6 +209,7 @@ async function insertSegment(
     emotional_arousal: segment.emotionalArousal,
     turn_range: segment.turnRange ? `[${segment.turnRange[0]},${segment.turnRange[1]}]` : null,
     conversation_date: conversationDate.toISOString(),
+    product,
   });
 
   if (error) {
@@ -260,6 +263,7 @@ async function vectorSearch(
   _timeWindow?: { after: Date; before: Date },
   _topicFilter?: string[],
   importanceFloor?: number,
+  product?: string,
 ): Promise<VectorCandidate[]> {
   // Use pgvector via Supabase's vector column support
   const embeddingStr = `[${queryEmbedding.join(',')}]`;
@@ -270,6 +274,7 @@ async function vectorSearch(
       match_user_ids: userIds,
       match_count: limit,
       min_importance: importanceFloor ?? 3,
+      match_product: product ?? 'jasper',
     });
 
   if (!error && data && data.length > 0) {
@@ -298,6 +303,7 @@ async function vectorSearch(
     .from('conversation_segments')
     .select('id, content, importance_score, segment_type, topic_labels, emotional_valence, conversation_date, conversation_id, embedding')
     .in('user_id', userIds)
+    .eq('product', product ?? 'jasper')
     .gte('importance_score', importanceFloor ?? 3)
     .order('importance_score', { ascending: false })
     .limit(100);
@@ -398,6 +404,7 @@ export async function recall(request: RecallRequest): Promise<RecallResult> {
     request.timeWindow,
     request.topicFilter,
     request.importanceFloor,
+    request.product,
   );
 
   console.log(`[recall] Vector search returned ${candidates.length} candidates`);

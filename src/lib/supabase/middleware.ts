@@ -32,7 +32,11 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/auth') ||
     request.nextUrl.pathname.startsWith('/welcome') ||
-    request.nextUrl.pathname.startsWith('/privacy');
+    request.nextUrl.pathname.startsWith('/privacy') ||
+    request.nextUrl.pathname === '/reasonqa' ||
+    request.nextUrl.pathname === '/reasonqa/pricing' ||
+    request.nextUrl.pathname === '/reasonqa/terms' ||
+    request.nextUrl.pathname === '/reasonqa/privacy';
   const isApiRoute = request.nextUrl.pathname.startsWith('/api');
 
   if (!user && !isAuthRoute && !isApiRoute) {

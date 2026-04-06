@@ -195,6 +195,7 @@ export interface BackgroundTaskConfig {
     directive: ResponseDirective,
     conversationState: ConversationState,
     modelTier: string,
+    personContext: PersonContext,
   ) => boolean;
   run: (
     userMessage: string,

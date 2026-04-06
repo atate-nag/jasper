@@ -24,3 +24,6 @@ export {
   buildRelationshipInjection,
   relationshipSafetyRewrite,
 } from './relationship-safety';
+export { steer as platformSteer } from './steer';
+export { formatTimeAgo } from './utils';
+export { storePendingConnection, consumePendingConnection } from './pending-connection';
