@@ -41,7 +41,10 @@ For every node with citationStatus "Ext" or "Int", assess whether the citation a
 - **warrant** (1-5): How well the claim explains WHY the source supports the conclusion
 - **notes**: Specific explanation
 
-For nodes with citationStatus "None" that make factual claims, mark them UNGROUNDED.
+For nodes with citationStatus "None":
+- If the claim restates a fact, figure, date, party identification, deal term, or procedural event that is STATED IN THE SOURCE DOCUMENT (the document being analysed), assign status SOURCE_DOCUMENT. This means the claim is grounded in the document under analysis, not in an external authority. Examples: "Poundland operates approximately 800 stores" → SOURCE_DOCUMENT. "Edge filed its Claim Form on 27 April 2022" → SOURCE_DOCUMENT.
+- If the claim is an evaluative conclusion, recommendation, or assertion that has no identified evidential basis in either the source document or external sources, mark it UNGROUNDED. Example: "The court should dismiss the claim" → UNGROUNDED (unless justified by other nodes).
+- SOURCE_DOCUMENT is distinct from UNGROUNDED. Most F nodes with no external citation will be SOURCE_DOCUMENT, not UNGROUNDED. Reserve UNGROUNDED for genuinely unsupported claims.
 
 Additionally, check for UNSUPPORTED PRESCRIPTIONS: P (Prescriptive) nodes that have no incoming J (Justification) edge from a V or M node. A prescription without a justification — "the court should dismiss the claim" with no evaluative basis — is a structural gap. Flag these in the correctionsNeeded list. This is HIGH severity if the P node is the document's ultimate recommendation, MEDIUM otherwise.
 
@@ -117,7 +120,7 @@ Return raw JSON matching this exact schema:
   "verifications": [
     {
       "nodeId": "string",
-      "status": "VERIFIED|PARTIAL|FAILED|UNGROUNDED|UNTRACEABLE",
+      "status": "VERIFIED|PARTIAL|FAILED|UNGROUNDED|UNTRACEABLE|SOURCE_DOCUMENT",
       "failureMode": "string (optional)",
       "match": "number 1-5 (optional)",
       "depth": "number 1-5 (optional)",

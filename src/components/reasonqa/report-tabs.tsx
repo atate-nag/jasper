@@ -103,6 +103,7 @@ const VERIFICATION_STYLES: Record<string, string> = {
   FAILED: 'text-red-400',
   UNGROUNDED: 'text-orange-400',
   UNTRACEABLE: 'text-gray-500',
+  SOURCE_DOCUMENT: 'text-cyan-400',
 };
 
 export function ReportTabs({ analysis }: { analysis: Analysis }) {
@@ -370,6 +371,7 @@ function VerificationTab({ pass3, nodeSourceMap }: { pass3: Analysis['pass3_outp
           <Stat label="Verified" value={assessment.totalVerified} color="text-green-400" />
           <Stat label="Partial" value={assessment.totalPartial} color="text-yellow-400" />
           <Stat label="Failed" value={assessment.totalFailed} color="text-red-400" />
+          <Stat label="Source doc" value={verifications.filter(v => v.status === 'SOURCE_DOCUMENT').length} color="text-cyan-400" />
           <Stat label="Ungrounded" value={assessment.totalUngrounded} color="text-orange-400" />
         </div>
       </div>

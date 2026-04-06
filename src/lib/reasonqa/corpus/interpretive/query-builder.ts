@@ -10,9 +10,11 @@ const MAX_AUTHORITIES = 5;
 const STATUTE_PATTERNS = [
   /^section\s/i,
   /^s\.\s?\d/i,
+  /^part\s+\d/i,
   /\bAct\s+\d{4}\b/,
   /\bRegulations?\s+\d{4}\b/i,
   /\bDirective\s+\d{4}\b/i,
+  /\bOrder\s+\d{4}\b/i,
   /\bSchedule\s+\d/i,
   /\bArticle\s+\d/i,
 ];
@@ -31,33 +33,44 @@ const GENERIC_DEFENDANTS = [
   'ministry of', 'department of', 'department for',
 ];
 
+function cleanPartyName(name: string): string {
+  return name
+    .replace(/\s*(&\s*(Ors|Anor|Others))\s*/gi, '')
+    .replace(/\s*(Ltd|Limited|Plc|Inc|LLP|EU)\s*/gi, '')
+    .replace(/\s*(Re|In re)\s*/gi, '')
+    .replace(/\s*\(.*?\)\s*/g, '')
+    .trim()
+    .split(/\s+/).slice(0, 3).join(' ');
+}
+
 // Extract the most distinctive search name from a case citation.
+// Returns a single distinctive party name for search — NOT the full "X v Y".
 function extractCaseName(raw: string): string | null {
-  // "X v Bedfordshire [1995] 2 AC 633" → "X v Bedfordshire"
-  // "Recall Support Services v DCMS [2013]..." → "Recall" (DCMS is generic)
-  // "Energy Solutions EU Ltd v Nuclear Decommissioning Authority [2017]..." → "Energy Solutions"
-  // "Re Poundland [2024]..." → "Re Poundland"
-  const vMatch = raw.match(/([A-Z][\w\s]*?)\s+v\s+([A-Z][\w\s]+?)(?:\s*\[|\s*$)/);
+  // Strip citation brackets first: [2013] EWHC 3091 (Ch), [1995] 2 AC 633
+  const stripped = raw.replace(/\[?\d{4}\]?\s*\w+\s*\d+\s*(\(\w+\))?/g, '').trim();
+
+  const vMatch = stripped.match(/([A-Z][\w\s&]*?)\s+v\.?\s+([A-Z][\w\s&]+?)$/);
   if (vMatch) {
-    const claimant = vMatch[1].trim().split(/\s+/).slice(0, 2).join(' ');
-    const defendant = vMatch[2].trim().split(/\s+/).slice(0, 2).join(' ');
+    const p1 = cleanPartyName(vMatch[1]);
+    const p2 = cleanPartyName(vMatch[2]);
 
-    // Check if defendant is generic — if so, use just the claimant
-    const defLc = defendant.toLowerCase();
-    const claimLc = claimant.toLowerCase();
-    const defIsGeneric = GENERIC_DEFENDANTS.some(g => defLc.includes(g));
-    const claimIsGeneric = GENERIC_DEFENDANTS.some(g => claimLc.includes(g));
+    const p1Lc = p1.toLowerCase();
+    const p2Lc = p2.toLowerCase();
+    const p1Generic = GENERIC_DEFENDANTS.some(g => p1Lc.includes(g)) || p1.length <= 2;
+    const p2Generic = GENERIC_DEFENDANTS.some(g => p2Lc.includes(g)) || p2.length <= 2;
 
-    if (defIsGeneric && !claimIsGeneric) return claimant;
-    if (claimIsGeneric && !defIsGeneric) return defendant;
-    // Neither generic — use full "X v Y"
-    return `${claimant} v ${defendant}`;
+    // Prefer the non-generic party; if neither generic, prefer the longer (more distinctive)
+    if (p2Generic && !p1Generic) return p1;
+    if (p1Generic && !p2Generic) return p2;
+    return p1.length >= p2.length ? p1 : p2;
   }
-  const reMatch = raw.match(/\bRe\s+([A-Z][\w\s]+?)(?:\s*\[|\s*$)/);
-  if (reMatch) return `Re ${reMatch[1].trim().split(/\s+/).slice(0, 2).join(' ')}`;
+
+  const reMatch = stripped.match(/\bRe\s+([A-Z][\w\s]+?)$/);
+  if (reMatch) return cleanPartyName(reMatch[1]);
+
   // First capitalised multi-word
   const nameMatch = raw.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
-  return nameMatch ? nameMatch[1].split(/\s+/).slice(0, 3).join(' ') : null;
+  return nameMatch ? cleanPartyName(nameMatch[1]) : null;
 }
 
 // Extract 1-2 topical terms from the proposition, deduplicating against the case name.

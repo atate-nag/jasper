@@ -24,6 +24,7 @@ const VERIFICATION_STROKE: Record<string, { color: string; dash: string }> = {
   FAILED: { color: '#EF4444', dash: '' },
   UNGROUNDED: { color: '#6B7280', dash: '2 2' },
   UNTRACEABLE: { color: '#EF4444', dash: '6 2' },
+  SOURCE_DOCUMENT: { color: '#06B6D4', dash: '' },
 };
 const SEVERITY_COLOR: Record<string, string> = {
   high: '#EF4444',

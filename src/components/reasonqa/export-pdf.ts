@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { Analysis } from '@/lib/reasonqa/types';
+import { extractCriticalChains } from './dag/chain-extract';
+import { computeLayout } from './dag/layout';
 
 const MARGIN = 20;
 const PAGE_W = 210;
@@ -131,6 +133,69 @@ export function exportAnalysisPDF(analysis: Analysis): void {
       y += LINE_H;
       y = body(doc, node.text, y, 4);
       y += 1;
+    }
+  }
+
+  // ── Reasoning Structure (DAG) ───────────────────────────────
+  if (p1?.nodes && p2?.edges) {
+    const chains = extractCriticalChains(p1.nodes, p2.edges, p3);
+    if (chains.length > 0) {
+      const layout = computeLayout(
+        p1.nodes, p2.edges, chains,
+        p2.structuralIssues || [],
+        p3?.verifications || [],
+      );
+      if (layout.nodes.length > 0) {
+        // Fit to page width
+        const scale = Math.min(CONTENT_W / layout.width, 80 / layout.height, 1);
+        const dagHeight = layout.height * scale;
+
+        y = checkPage(doc, y, dagHeight + 20);
+        y = heading(doc, 'Reasoning Structure', y);
+
+        const TYPE_COLORS: Record<string, string> = { F: '#6B7280', M: '#F59E0B', V: '#3B82F6', P: '#10B981' };
+        const offsetX = MARGIN + (CONTENT_W - layout.width * scale) / 2;
+
+        // Draw edges
+        for (const edge of layout.edges) {
+          if (edge.points.length >= 2) {
+            doc.setDrawColor(edge.isWeakLink ? '#EF4444' : '#9CA3AF');
+            doc.setLineWidth(edge.isWeakLink ? 0.5 : 0.2);
+            const pts = edge.points;
+            for (let i = 0; i < pts.length - 1; i++) {
+              doc.line(
+                offsetX + pts[i].x * scale, y + pts[i].y * scale,
+                offsetX + pts[i + 1].x * scale, y + pts[i + 1].y * scale,
+              );
+            }
+          }
+        }
+
+        // Draw nodes
+        const nw = 20 * scale;
+        const nh = 6 * scale;
+        for (const node of layout.nodes) {
+          const nx = offsetX + node.x * scale - nw / 2;
+          const ny = y + node.y * scale - nh / 2;
+          const color = TYPE_COLORS[node.type] || '#6B7280';
+          doc.setFillColor(color);
+          doc.setDrawColor(color);
+          doc.roundedRect(nx, ny, nw, nh, 1, 1, 'F');
+          doc.setFontSize(5);
+          doc.setTextColor('#FFFFFF');
+          doc.text(node.id, nx + nw / 2, ny + nh / 2 + 1, { align: 'center' });
+        }
+
+        doc.setTextColor(0);
+        y += dagHeight + 4;
+
+        // Legend
+        doc.setFontSize(6);
+        doc.setTextColor(120);
+        doc.text('F=Factual  M=Mechanism  V=Value  P=Prescriptive  Red edge=weak link', MARGIN, y);
+        doc.setTextColor(0);
+        y += 6;
+      }
     }
   }
 

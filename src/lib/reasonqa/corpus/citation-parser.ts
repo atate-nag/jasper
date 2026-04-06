@@ -73,8 +73,11 @@ const STATUTE_LOOKUP: Record<string, { type: string; year: number; chapter: numb
   'contract (rights of third parties) act 1999': { type: 'ukpga', year: 1999, chapter: 31 },
 };
 
-// Statute section regex: "s.172" or "section 172" or "s 172(1)(a)"
+// Statute section regex: "s.172" or "section 172" or "s 172(1)(a)" or "s.901G"
 const SECTION_RE = /(?:s\.?|section)\s*(\d+[A-Z]?)(?:\([\d]+\)(?:\([a-z]\))?)?/i;
+
+// Schedule regex: "Schedule 8 [39(7)]" or "Schedule 1, paragraph 4" or "Schedule 1 [4]"
+const SCHEDULE_RE = /schedule\s+(\d+)(?:\s*[\[\(,]\s*(?:paragraph\s*)?(\d+))?/i;
 
 // Paragraph citation: "at [37]" or "¶16" or "para 37"
 const PARA_RE = /(?:at\s+)\[(\d+)\]|¶(\d+)|(?:para(?:graph)?\.?\s*)(\d+)/i;
@@ -123,10 +126,22 @@ export function parseCitation(raw: string): ParsedCitation {
   for (const [name, info] of Object.entries(STATUTE_LOOKUP)) {
     if (lc.includes(name)) {
       const sectionMatch = raw.match(SECTION_RE);
+      const scheduleMatch = raw.match(SCHEDULE_RE);
       const section = sectionMatch?.[1];
-      const legislationUri = section
-        ? `${info.type}/${info.year}/${info.chapter}/section/${section}`
-        : `${info.type}/${info.year}/${info.chapter}`;
+      const scheduleNum = scheduleMatch?.[1];
+      const schedulePara = scheduleMatch?.[2];
+
+      let legislationUri: string;
+      if (scheduleNum) {
+        // Schedule reference: schedule/N or schedule/N/paragraph/M
+        legislationUri = schedulePara
+          ? `${info.type}/${info.year}/${info.chapter}/schedule/${scheduleNum}/paragraph/${schedulePara}`
+          : `${info.type}/${info.year}/${info.chapter}/schedule/${scheduleNum}`;
+      } else if (section) {
+        legislationUri = `${info.type}/${info.year}/${info.chapter}/section/${section}`;
+      } else {
+        legislationUri = `${info.type}/${info.year}/${info.chapter}`;
+      }
 
       return {
         raw,
@@ -135,7 +150,7 @@ export function parseCitation(raw: string): ParsedCitation {
         actType: info.type,
         actYear: info.year,
         actChapter: info.chapter,
-        section,
+        section: section || (scheduleNum ? `sch${scheduleNum}` : undefined),
         legislationUri,
         paragraph,
       };

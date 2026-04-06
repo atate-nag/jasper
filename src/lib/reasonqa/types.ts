@@ -63,7 +63,7 @@ export interface DAGMetrics {
 
 export interface CitationVerification {
   nodeId: string;
-  status: 'VERIFIED' | 'PARTIAL' | 'FAILED' | 'UNGROUNDED' | 'UNTRACEABLE';
+  status: 'VERIFIED' | 'PARTIAL' | 'FAILED' | 'UNGROUNDED' | 'UNTRACEABLE' | 'SOURCE_DOCUMENT';
   failureMode?: 'INTERPRETIVE' | 'MISATTRIBUTION' | 'FABRICATION' | 'CITATION_AS_SIGNAL' | 'COMPOUND_BUNDLING';
   match?: number;     // 1-5
   depth?: number;     // 1-5
