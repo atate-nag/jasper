@@ -12,7 +12,7 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
-const FREE_LIMIT = 3;
+const FREE_LIMIT = 2;
 const PRO_LIMIT = 20;
 
 export async function getMonthlyUsage(userId: string): Promise<number> {
