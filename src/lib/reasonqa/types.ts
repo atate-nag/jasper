@@ -12,6 +12,8 @@ export interface ClaimNode {
   edgeDrafts: string[];    // e.g. ["S→P003", "←W from P001"]
   sourceSection?: string;
   codingNotes?: string;
+  sourceParagraphs?: string;    // e.g. "7-9" or "14" or "22-28, 31"
+  sourceWordCount?: number;     // approximate word count devoted to this claim
 }
 
 export interface Pass1Output {
@@ -104,10 +106,123 @@ export interface Pass3Output {
   assessment: OverallAssessment;
 }
 
+// ── Pass 4: Argument Reconstruction ──────────────────────────────
+
+export interface SubConclusion {
+  nodeId: string;
+  description: string;
+  pathType: 'single_point_of_failure' | 'limited_redundancy' | 'redundant';
+  supportingChains: string[][];
+  redundancy: 'none' | 'partial' | 'full';
+}
+
+export interface CriticalityAssessment {
+  issueIndex: number;
+  issueType: string;
+  originalSeverity: string;
+  criticality: 'CRITICAL' | 'SIGNIFICANT' | 'CONTEXTUAL';
+  consequenceChain?: string;
+  overFormalized?: boolean;
+  suppressionReason?: string;
+  adjustedSeverity: string;
+}
+
+export interface Pass4Output {
+  argumentIntent: string;
+  ultimateConclusions: string[];
+  necessarySubConclusions: SubConclusion[];
+  criticalityAssessments: CriticalityAssessment[];
+  qualityAdjustment: {
+    originalRating: string;
+    adjustedRating: string;
+    reason: string;
+  };
+  suppressedIssueIndices: number[];
+  suppressionCount: number;
+}
+
+// ── Pass 5-9: Dialectical Synthesis ──────────────────────────────
+
+export type ArgumentationScheme =
+  | 'argument_from_authority' | 'argument_from_analogy' | 'argument_from_rules'
+  | 'argument_from_evidence' | 'argument_from_sign' | 'practical_reasoning'
+  | 'argument_from_classification' | 'argument_from_precedent' | 'causal_argument'
+  | 'argument_from_negative_consequences' | 'argument_from_position_to_know'
+  | 'argument_from_correlation' | 'argument_from_best_explanation' | 'other';
+
+export interface CriticalQuestion {
+  id: string;
+  text: string;
+  attackType: 'undermining' | 'rebutting' | 'undercutting';
+}
+
+export interface NodeScheme {
+  nodeId: string;
+  scheme: ArgumentationScheme;
+}
+
+export interface Pass5Output {
+  nodeSchemes: NodeScheme[];
+}
+
+export interface CounterPosition {
+  nodeId: string;
+  counterText: string;
+  criticalQuestionsAnswered: Array<{ cqId: string; answer: string; strength: 'strong' | 'moderate' | 'weak' }>;
+  overallStrength: 'strong' | 'moderate' | 'weak';
+}
+
+export interface Pass6Output {
+  counterPositions: CounterPosition[];
+}
+
+export interface Pass7Output {
+  synthesis: string;
+  acceptedFromA: string[];
+  rejectedFromA: string[];
+  acceptedFromB: string[];
+  contested: string[];
+  loadBearingNodes: Array<{
+    nodeId: string;
+    reason: string;
+    resolution: string;
+    confidence: number;
+  }>;
+}
+
+export interface PerturbationResult {
+  proposition: string;
+  alternativeSynthesis: string;
+  changesRequired: string[];
+  coherenceImpact: 'minimal' | 'moderate' | 'fundamental';
+  isFascinationThreshold: boolean;
+}
+
+export interface Pass8Output {
+  perturbations: PerturbationResult[];
+}
+
+export interface FinalNodeScore {
+  nodeId: string;
+  statusInC: 'accepted' | 'rejected' | 'contested';
+  loadBearingInC: boolean;
+  fascinationThreshold: boolean;
+  counterStrength: 'strong' | 'moderate' | 'weak' | 'none';
+  criticality: number;
+  interpretation: string;
+}
+
+export interface Pass9Output {
+  scores: FinalNodeScore[];
+  summary: string;
+}
+
 // ── Analysis Record ──────────────────────────────────────────────
 
 export type AnalysisStatus =
-  | 'pending' | 'pass1' | 'pass2' | 'metrics' | 'pass3' | 'complete' | 'error';
+  | 'pending' | 'pass1' | 'pass2' | 'metrics' | 'pass3'
+  | 'pass5' | 'pass6' | 'pass7' | 'pass8' | 'pass9'
+  | 'complete' | 'error';
 
 export type AnalysisMode = 'full' | 'quick';
 
@@ -148,6 +263,13 @@ export interface Analysis {
   pass2_output: Pass2Output | null;
   metrics_output: DAGMetrics | null;
   pass3_output: Pass3Output | null;
+  pass4_output: Pass4Output | null;
+  dialectical: boolean;
+  pass5_output: Pass5Output | null;
+  pass6_output: Pass6Output | null;
+  pass7_output: Pass7Output | null;
+  pass8_output: Pass8Output | null;
+  pass9_output: Pass9Output | null;
   sources: SourceReference[] | null;
   pass_stats: PassStats | null;
   error_message: string | null;
