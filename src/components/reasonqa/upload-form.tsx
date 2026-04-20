@@ -108,6 +108,7 @@ export function UploadForm() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<AnalysisMode>('full');
+  const [dialectical, setDialectical] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
@@ -133,6 +134,7 @@ export function UploadForm() {
       const form = new FormData();
       form.append('file', file);
       form.append('mode', mode);
+      if (dialectical) form.append('dialectical', 'true');
 
       const res = await fetch('/api/reasonqa/analyse', {
         method: 'POST',
@@ -170,10 +172,10 @@ export function UploadForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* File drop zone */}
       <div
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 transition-colors ${
+        className={`flex flex-col items-center justify-center rounded border-2 border-dashed p-12 transition-colors ${
           dragOver
-            ? 'border-blue-500 bg-blue-950/20'
-            : 'border-gray-700 bg-gray-900'
+            ? 'border-[#1B2A4A] bg-[#E8ECF4]'
+            : 'border-[#D1D5DB] bg-[#F8F9FA]'
         }`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -192,85 +194,84 @@ export function UploadForm() {
         />
         {file ? (
           <div className="text-center">
-            <p className="font-medium text-white">{file.name}</p>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="font-medium text-[#1A1A2E]">{file.name}</p>
+            <p className="mt-1 text-sm text-[#8B8BA3]">
               {(file.size / 1024).toFixed(0)} KB
             </p>
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-gray-400">Drop a document here or click to select</p>
-            <p className="mt-1 text-sm text-gray-600">PDF, DOCX, PPTX, TXT, or Markdown</p>
+            <p className="text-[#4A4A68]">Drop a document here or click to select</p>
+            <p className="mt-1 text-sm text-[#8B8BA3]">PDF, DOCX, PPTX, TXT, or Markdown</p>
           </div>
         )}
       </div>
 
-      {/* Mode selection — only show after file is selected */}
+      <p className="text-xs leading-relaxed text-[#8B8BA3]">Your document is deleted from our servers immediately after analysis completes. Only the generated report is retained in your account. Document text is processed via Anthropic&apos;s API under zero data retention &mdash; your content is not logged or stored by any third party. You can permanently delete any report at any time.</p>
+
+      {/* Mode selection */}
       {file && estimates && (
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-400">Choose analysis depth</p>
+          <p className="text-sm font-medium text-[#4A4A68]">Choose analysis depth</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            {/* Full analysis */}
             <button
               type="button"
               onClick={() => setMode('full')}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`rounded border p-4 text-left transition-all ${
                 mode === 'full'
-                  ? 'border-blue-500 bg-blue-950/20'
-                  : 'border-gray-700 bg-gray-900 hover:border-gray-600'
+                  ? 'border-[#1B2A4A] bg-[#E8ECF4] shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
+                  : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-white">Full Analysis</p>
-                {mode === 'full' && (
-                  <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">Selected</span>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-gray-400">
-                Three-pass pipeline: claim extraction, graph construction, Opus verification with corpus lookup
+              <p className="font-medium text-[#1A1A2E]">Full Analysis</p>
+              <p className="mt-1 text-xs text-[#4A4A68]">
+                Claim extraction, graph construction, verification with corpus lookup, argument reconstruction
               </p>
-              <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                <span>{formatTimeRange(estimates.full.timeMinLow, estimates.full.timeMinHigh)}</span>
-                <span>{formatCostRange(estimates.full.costLow, estimates.full.costHigh)}</span>
-              </div>
+              {mode === 'full' && (
+                <label className="mt-3 flex items-center gap-2 text-xs text-[#4A4A68]" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={dialectical}
+                    onChange={e => setDialectical(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-[#D1D5DB] accent-[#1B2A4A]"
+                  />
+                  Include dialectical synthesis (counter-argument + objective case)
+                </label>
+              )}
+              <p className="mt-2 text-xs text-[#8B8BA3]">
+                Typically {formatTimeRange(estimates.full.timeMinLow, dialectical ? estimates.full.timeMinHigh + 5 : estimates.full.timeMinHigh)}
+              </p>
             </button>
 
-            {/* Quick analysis */}
             <button
               type="button"
               onClick={() => setMode('quick')}
-              className={`rounded-lg border p-4 text-left transition-colors ${
+              className={`rounded border p-4 text-left transition-all ${
                 mode === 'quick'
-                  ? 'border-blue-500 bg-blue-950/20'
-                  : 'border-gray-700 bg-gray-900 hover:border-gray-600'
+                  ? 'border-[#1B2A4A] bg-[#E8ECF4] shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
+                  : 'border-[#E5E7EB] bg-white hover:border-[#D1D5DB]'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-white">Quick Scan</p>
-                {mode === 'quick' && (
-                  <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">Selected</span>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="font-medium text-[#1A1A2E]">Quick Scan</p>
+              <p className="mt-1 text-xs text-[#4A4A68]">
                 Single-pass: key claims, major issues, and overall assessment. No graph or corpus lookup.
               </p>
-              <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                <span>{formatTimeRange(estimates.quick.timeMinLow, estimates.quick.timeMinHigh)}</span>
-                <span>{formatCostRange(estimates.quick.costLow, estimates.quick.costHigh)}</span>
-              </div>
+              <p className="mt-3 text-xs text-[#8B8BA3]">
+                Typically {formatTimeRange(estimates.quick.timeMinLow, estimates.quick.timeMinHigh)}
+              </p>
             </button>
           </div>
-          <p className="text-xs text-gray-600">
-            Estimates based on document size ({(file.size / 1024).toFixed(0)} KB). Actual costs depend on document complexity.
+          <p className="text-xs text-[#8B8BA3]">
+            Time estimates based on document size.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="text-sm text-red-400">
+        <div className="text-sm text-[#A63D40]">
           <p>{error}</p>
           {upgradeUrl && (
-            <a href={upgradeUrl} className="mt-1 inline-block text-blue-400 hover:underline">
+            <a href={upgradeUrl} className="mt-1 inline-block text-[#1B2A4A] hover:underline">
               Upgrade to Pro &rarr;
             </a>
           )}
@@ -280,7 +281,7 @@ export function UploadForm() {
       <button
         type="submit"
         disabled={!file || loading}
-        className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded bg-[#1B2A4A] px-4 py-3 text-sm font-medium text-white hover:bg-[#263D6A] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
           ? 'Uploading...'
@@ -290,7 +291,7 @@ export function UploadForm() {
       </button>
 
       {loading && (
-        <p className="text-center text-sm text-gray-500">
+        <p className="text-center text-sm text-[#8B8BA3]">
           Uploading and starting analysis...
         </p>
       )}

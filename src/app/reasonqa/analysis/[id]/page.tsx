@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
@@ -26,7 +28,7 @@ export default async function AnalysisPage({
   if (error || !data) {
     return (
       <div className="pt-16 text-center">
-        <p className="text-gray-500">Analysis not found.</p>
+        <p className="text-[#8B8BA3]">Analysis not found.</p>
       </div>
     );
   }
@@ -34,9 +36,10 @@ export default async function AnalysisPage({
   const analysis = data as Analysis;
 
   if (analysis.status !== 'complete' && analysis.status !== 'error') {
-    // Detect re-verify: has Pass 1 + Pass 2 but status is pass3 (skipped earlier passes)
+    // Detect mode: re-verify or dialectical
     const isReverify = !!analysis.pass1_output && !!analysis.pass2_output &&
       (analysis.status === 'pass3' || (analysis.title?.includes('re-verified') ?? false));
+    const isDialectical = ['pass5', 'pass6', 'pass7', 'pass8', 'pass9'].includes(analysis.status);
     return (
       <AnalysisPoller
         id={id}
@@ -44,6 +47,10 @@ export default async function AnalysisPage({
         createdAt={analysis.created_at}
         initialStats={analysis.pass_stats}
         reverify={isReverify}
+        dialectical={isDialectical}
+        documentName={analysis.title || 'Untitled document'}
+        docType={analysis.doc_type}
+        mode={analysis.mode}
       />
     );
   }
@@ -51,8 +58,8 @@ export default async function AnalysisPage({
   if (analysis.status === 'error') {
     return (
       <div className="pt-16 text-center">
-        <p className="text-red-400">Analysis failed</p>
-        <p className="mt-2 text-sm text-gray-500">{analysis.error_message}</p>
+        <p className="font-medium text-[#A63D40]">Analysis failed</p>
+        <p className="mt-2 text-sm text-[#8B8BA3]">{analysis.error_message}</p>
       </div>
     );
   }

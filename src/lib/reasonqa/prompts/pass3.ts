@@ -114,6 +114,9 @@ Produce a final quality judgment:
 - **correctionsNeeded**: Specific, actionable corrections the author should make, ordered by importance
 - **summary**: 2-3 paragraph plain-English summary written for the document's author, not for a logician. No jargon. No mention of "nodes" or "edges". Just: what's strong, what's weak, and what to fix.
 
+CRITICAL CONSTRAINT — FACTUAL CLAIMS IN THE SUMMARY:
+The summary must NOT assert factual discrepancies, errors, or corrections unless they are explicitly supported by findings in the Issues list or Citation Verification section. Do NOT compare the document's statements against your own knowledge of the case. Only compare against retrieved source material as documented above. If no issue identifies a specific factual error, the summary must not invent one.
+
 Return raw JSON matching this exact schema:
 
 {

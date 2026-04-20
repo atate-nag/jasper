@@ -5,31 +5,31 @@ import type { Analysis } from '@/lib/reasonqa/types';
 import { extractCriticalChains, type ChainData, type VisNode, type VisEdge } from './chain-extract';
 import { computeLayout } from './layout';
 
-// Colours
+// Colours — muted light-theme palette
 const TYPE_FILL: Record<string, string> = {
-  F: '#374151', // gray-700
-  M: '#92400e', // amber-900
-  V: '#1e3a5f', // blue-900
-  P: '#064e3b', // green-900
+  F: '#F1F3F5',
+  M: '#FDF6E3',
+  V: '#E8ECF4',
+  P: '#E8F5E9',
 };
 const TYPE_STROKE: Record<string, string> = {
-  F: '#6B7280',
-  M: '#F59E0B',
-  V: '#3B82F6',
-  P: '#10B981',
+  F: '#8B8BA3',
+  M: '#B8860B',
+  V: '#1B2A4A',
+  P: '#2D7D46',
 };
 const VERIFICATION_STROKE: Record<string, { color: string; dash: string }> = {
-  VERIFIED: { color: '#10B981', dash: '' },
-  PARTIAL: { color: '#F59E0B', dash: '4 2' },
-  FAILED: { color: '#EF4444', dash: '' },
-  UNGROUNDED: { color: '#6B7280', dash: '2 2' },
-  UNTRACEABLE: { color: '#EF4444', dash: '6 2' },
-  SOURCE_DOCUMENT: { color: '#06B6D4', dash: '' },
+  VERIFIED: { color: '#2D7D46', dash: '' },
+  PARTIAL: { color: '#B8860B', dash: '4 2' },
+  FAILED: { color: '#A63D40', dash: '' },
+  UNGROUNDED: { color: '#8B8BA3', dash: '2 2' },
+  UNTRACEABLE: { color: '#A63D40', dash: '6 2' },
+  SOURCE_DOCUMENT: { color: '#5B7BA3', dash: '' },
 };
 const SEVERITY_COLOR: Record<string, string> = {
-  high: '#EF4444',
-  medium: '#F59E0B',
-  low: '#6B7280',
+  high: '#A63D40',
+  medium: '#B8860B',
+  low: '#8B8BA3',
 };
 
 const NODE_W = 180;
@@ -108,7 +108,7 @@ export function ReasoningChainView({ analysis }: Props) {
 
   if (chains.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-[#8B8BA3]">
         No reasoning chains deep enough to visualise (minimum depth: 3).
       </p>
     );
@@ -119,7 +119,7 @@ export function ReasoningChainView({ analysis }: Props) {
       {/* Chain selector */}
       {chains.length > 1 && (
         <div className="flex flex-wrap gap-2">
-          <span className="text-xs text-gray-500 self-center">Chains:</span>
+          <span className="text-xs text-[#8B8BA3] self-center">Chains:</span>
           {chains.map(chain => {
             const isActive = !activeChains || activeChains.has(chain.conclusionId);
             return (
@@ -128,8 +128,8 @@ export function ReasoningChainView({ analysis }: Props) {
                 onClick={() => toggleChain(chain.conclusionId)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-900/50 text-blue-300 border border-blue-700'
-                    : 'bg-gray-900 text-gray-500 border border-gray-800'
+                    ? 'bg-[#E8ECF4] text-[#1B2A4A] border border-[#1B2A4A]'
+                    : 'bg-[#F8F9FA] text-[#8B8BA3] border border-[#E5E7EB]'
                 }`}
               >
                 {chain.conclusionId} (depth {chain.depth})
@@ -140,7 +140,7 @@ export function ReasoningChainView({ analysis }: Props) {
       )}
 
       {/* SVG DAG */}
-      <div className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-950 p-2">
+      <div className="overflow-x-auto rounded border border-[#E5E7EB] bg-[#FAFBFC] p-4">
         <svg
           width={Math.max(layout.width, 300)}
           height={Math.max(layout.height, 200)}
@@ -170,14 +170,14 @@ export function ReasoningChainView({ analysis }: Props) {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-4 text-xs text-[#8B8BA3]">
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: TYPE_STROKE.F }} /> Factual</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: TYPE_STROKE.V }} /> Value</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: TYPE_STROKE.M }} /> Mechanism</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: TYPE_STROKE.P }} /> Prescriptive</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-4 rounded-sm border-t-2" style={{ borderColor: '#EF4444' }} /> Weak link</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-4 rounded-sm border-t-2" style={{ borderColor: '#A63D40' }} /> Weak link</span>
       </div>
-      <p className="text-xs text-gray-600">
+      <p className="text-xs text-[#8B8BA3]">
         Showing the main reasoning chains from evidence (top) to conclusions (bottom). Red edges indicate the weakest link in each chain. Click any node for details.
       </p>
 
@@ -241,7 +241,7 @@ function NodeCard({
         {node.id}
       </text>
       {/* Truncated claim text */}
-      <text x={x + 8} y={y + 32} fill="#D1D5DB" fontSize={10} fontFamily="sans-serif">
+      <text x={x + 8} y={y + 32} fill="#4A4A68" fontSize={10} fontFamily="sans-serif">
         {node.text.length > 28 ? node.text.slice(0, 28) + '...' : node.text}
       </text>
       {/* Verification badge */}
@@ -289,14 +289,14 @@ function EdgePath({ edge, dimmed }: { edge: VisEdge; dimmed: boolean }) {
       <path
         d={d}
         fill="none"
-        stroke={edge.isWeakLink ? '#EF4444' : '#4B5563'}
+        stroke={edge.isWeakLink ? '#A63D40' : '#D1D5DB'}
         strokeWidth={edge.isWeakLink ? 2.5 : 1.2}
         strokeDasharray={edge.isWeakLink ? '' : ''}
       />
       {/* Arrowhead */}
       <polygon
         points={`0,-4 8,0 0,4`}
-        fill={edge.isWeakLink ? '#EF4444' : '#4B5563'}
+        fill={edge.isWeakLink ? '#A63D40' : '#D1D5DB'}
         transform={`translate(${last.x},${last.y}) rotate(${(angle * 180) / Math.PI})`}
       />
     </g>
@@ -322,32 +322,32 @@ function NodeDetailPanel({
   const typeLabel: Record<string, string> = { F: 'Factual', M: 'Mechanism', V: 'Value', P: 'Prescriptive' };
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
+    <div className="rounded border border-[#E5E7EB] bg-[#F8F9FA] p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-bold text-gray-300">{node.id}</span>
-          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-400">
+          <span className="font-mono text-sm font-bold text-[#1A1A2E]">{node.id}</span>
+          <span className="rounded bg-[#F1F3F5] px-1.5 py-0.5 text-xs text-[#8B8BA3]">
             {typeLabel[node.type] || node.type}
           </span>
-          <span className="text-xs text-gray-500">{node.qualifier}</span>
+          <span className="text-xs text-[#8B8BA3]">{node.qualifier}</span>
         </div>
-        <button onClick={onClose} className="text-xs text-gray-500 hover:text-white">Close</button>
+        <button onClick={onClose} className="text-xs text-[#8B8BA3] hover:text-[#1A1A2E]">Close</button>
       </div>
-      <p className="mt-2 text-sm text-gray-300">{node.text}</p>
+      <p className="mt-2 text-sm text-[#1A1A2E]">{node.text}</p>
 
       {node.citationStatus !== 'None' && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-[#8B8BA3]">
           Citation: {node.citationStatus} — {node.citationSource || 'unknown'}
         </p>
       )}
 
       {verification && (
-        <div className="mt-3 rounded bg-gray-800/50 p-2">
-          <p className="text-xs font-medium text-gray-400">
+        <div className="mt-3 rounded bg-[#F1F3F5] p-2">
+          <p className="text-xs font-medium text-[#8B8BA3]">
             Verification: <span style={{ color: VERIFICATION_STROKE[verification.status]?.color || '#6B7280' }}>{verification.status}</span>
-            {verification.failureMode && <span className="text-gray-600"> ({verification.failureMode})</span>}
+            {verification.failureMode && <span className="text-[#8B8BA3]"> ({verification.failureMode})</span>}
           </p>
-          <p className="mt-1 text-xs text-gray-500">{verification.notes}</p>
+          <p className="mt-1 text-xs text-[#8B8BA3]">{verification.notes}</p>
         </div>
       )}
 
@@ -358,14 +358,14 @@ function NodeDetailPanel({
               <span className="font-medium" style={{ color: SEVERITY_COLOR[issue.severity] || '#6B7280' }}>
                 {issue.severity.toUpperCase()}
               </span>
-              <span className="text-gray-400"> — {issue.description}</span>
-              {issue.suggestedFix && <p className="text-gray-600 mt-0.5">Fix: {issue.suggestedFix}</p>}
+              <span className="text-[#8B8BA3]"> — {issue.description}</span>
+              {issue.suggestedFix && <p className="text-[#8B8BA3] mt-0.5">Fix: {issue.suggestedFix}</p>}
             </div>
           ))}
         </div>
       )}
 
-      <div className="mt-3 flex gap-4 text-xs text-gray-600">
+      <div className="mt-3 flex gap-4 text-xs text-[#8B8BA3]">
         {inEdges.length > 0 && (
           <span>Supported by: {inEdges.map(e => e.fromId).join(', ')}</span>
         )}

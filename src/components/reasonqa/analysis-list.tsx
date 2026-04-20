@@ -22,15 +22,12 @@ export function AnalysisList({ analyses }: { analyses: AnalysisRow[] }) {
   async function handleDelete(e: React.MouseEvent, id: string) {
     e.preventDefault();
     e.stopPropagation();
+    if (!confirm('This will permanently delete this analysis and its report. Deleted data cannot be recovered.')) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/reasonqa/analysis/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        router.refresh();
-      }
-    } catch {
-      // ignore
-    }
+      if (res.ok) router.refresh();
+    } catch { /* ignore */ }
     setDeleting(null);
   }
 
@@ -39,7 +36,7 @@ export function AnalysisList({ analyses }: { analyses: AnalysisRow[] }) {
       {analyses.map((a) => {
         const isFailed = a.status === 'error';
         const isStuck = !['complete', 'error'].includes(a.status) &&
-          Date.now() - new Date(a.created_at).getTime() > 300_000; // 5min
+          Date.now() - new Date(a.created_at).getTime() > 300_000;
         const isInProgress = !['complete', 'error'].includes(a.status);
         const showDelete = isFailed || isStuck || isInProgress;
         const date = new Date(a.created_at).toLocaleDateString('en-GB', {
@@ -51,32 +48,29 @@ export function AnalysisList({ analyses }: { analyses: AnalysisRow[] }) {
         return (
           <div
             key={a.id}
-            className={`flex items-center justify-between rounded-lg border p-4 ${
+            className={`group flex items-center justify-between rounded border bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] ${
               isFailed || isStuck
-                ? 'border-gray-800/50 bg-gray-900/50'
-                : 'border-gray-800 bg-gray-900 hover:border-gray-700'
+                ? 'border-[#E5E7EB] opacity-60'
+                : 'border-[#E5E7EB]'
             }`}
           >
-            <Link
-              href={`/reasonqa/analysis/${a.id}`}
-              className="min-w-0 flex-1"
-            >
-              <p className={`truncate font-medium ${isFailed || isStuck ? 'text-gray-500' : 'text-white'}`}>
+            <Link href={`/reasonqa/analysis/${a.id}`} className="min-w-0 flex-1">
+              <p className={`truncate font-medium ${isFailed || isStuck ? 'text-[#8B8BA3]' : 'text-[#1A1A2E]'}`}>
                 {a.title || 'Untitled document'}
               </p>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-[#8B8BA3]">
                 {a.doc_type.toUpperCase()} &middot; {date}
                 {isStuck && ' · appears stalled'}
               </p>
             </Link>
-            <div className="ml-4 flex items-center gap-3">
+            <div className="ml-4 flex items-center gap-4">
               <QualityBadge quality={a.quality} />
               <StatusBadge status={a.status as AnalysisStatus} />
               {showDelete && (
                 <button
                   onClick={(e) => handleDelete(e, a.id)}
                   disabled={deleting === a.id}
-                  className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-red-950/50 hover:text-red-400"
+                  className="hidden rounded px-2 py-1 text-xs text-[#8B8BA3] hover:text-[#A63D40] group-hover:inline-block"
                   title="Delete this analysis"
                 >
                   {deleting === a.id ? '...' : 'Delete'}

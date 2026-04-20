@@ -69,7 +69,22 @@ Return raw JSON matching this exact schema:
 Return raw JSON only. No markdown fences. No commentary outside the JSON.`;
 
   const nodesJson = JSON.stringify(pass1.nodes, null, 2);
-  const userMessage = `ORIGINAL DOCUMENT:\n${documentText}\n\nEXTRACTED NODES (from Pass 1):\n${nodesJson}`;
+
+  // Build a compact node reference list for the hard constraint
+  const nodeRefList = pass1.nodes
+    .map(n => `[${n.id}] ${n.text.substring(0, 60)}...`)
+    .join('\n');
+
+  const userMessage = `AVAILABLE NODES — HARD CONSTRAINT:
+Every edge you create MUST reference ONLY these IDs as source and target. Do NOT reference any ID not in this list. If you believe an edge should exist but no node captures the proposition, state this as a note rather than creating an edge with a non-existent ID.
+
+${nodeRefList}
+
+ORIGINAL DOCUMENT:
+${documentText}
+
+EXTRACTED NODES (from Pass 1):
+${nodesJson}`;
 
   return { systemPrompt, userMessage };
 }

@@ -51,16 +51,19 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const mode = (formData.get('mode') as string) === 'quick' ? 'quick' : 'full';
+    const dialectical = formData.get('dialectical') === 'true';
 
     const { data, error } = await getSupabaseAdmin()
       .from('reasonqa_analyses')
       .insert({
         user_id: user.id,
         status: 'pending',
+        title: file.name.replace(/\.[^.]+$/, ''),
         doc_type: docType,
         doc_text: text,
         doc_size_bytes: buffer.length,
         mode,
+        dialectical,
       })
       .select('id')
       .single();
@@ -73,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
     // Trigger Inngest background job
     await inngest.send({
       name: 'reasonqa/analyse',
-      data: { analysisId: data.id, userId: user.id, mode },
+      data: { analysisId: data.id, userId: user.id, mode, dialectical },
     });
 
     return Response.json({ id: data.id });

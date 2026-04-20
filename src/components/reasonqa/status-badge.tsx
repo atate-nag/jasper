@@ -1,13 +1,13 @@
 import type { AnalysisStatus } from '@/lib/reasonqa/types';
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-yellow-900/50 text-yellow-300',
-  pass1: 'bg-yellow-900/50 text-yellow-300',
-  pass2: 'bg-yellow-900/50 text-yellow-300',
-  metrics: 'bg-yellow-900/50 text-yellow-300',
-  pass3: 'bg-yellow-900/50 text-yellow-300',
-  complete: 'bg-green-900/50 text-green-300',
-  error: 'bg-red-900/50 text-red-300',
+  pending: 'text-[#8B8BA3]',
+  pass1: 'text-[#B8860B]',
+  pass2: 'text-[#B8860B]',
+  metrics: 'text-[#B8860B]',
+  pass3: 'text-[#B8860B]',
+  complete: 'text-[#2D7D46]',
+  error: 'text-[#A63D40]',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -22,25 +22,23 @@ const STATUS_LABELS: Record<string, string> = {
 
 export function StatusBadge({ status }: { status: AnalysisStatus }) {
   return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-800 text-gray-400'}`}
-    >
+    <span className={`text-xs font-medium ${STATUS_STYLES[status] || 'text-[#8B8BA3]'}`}>
       {STATUS_LABELS[status] || status}
     </span>
   );
 }
 
 const QUALITY_STYLES: Record<string, string> = {
-  STRONG: 'text-green-400',
-  ADEQUATE: 'text-blue-400',
-  MARGINAL: 'text-yellow-400',
-  WEAK: 'text-red-400',
+  STRONG: 'text-[#2D7D46] border-[#2D7D46]',
+  ADEQUATE: 'text-[#5B7BA3] border-[#5B7BA3]',
+  MARGINAL: 'text-[#B8860B] border-[#B8860B]',
+  WEAK: 'text-[#A63D40] border-[#A63D40]',
 };
 
 export function QualityBadge({ quality }: { quality: string | null }) {
   if (!quality) return null;
   return (
-    <span className={`text-sm font-semibold ${QUALITY_STYLES[quality] || 'text-gray-400'}`}>
+    <span className={`border-l-[3px] pl-2 text-xs font-semibold uppercase tracking-wide ${QUALITY_STYLES[quality] || 'text-[#8B8BA3]'}`}>
       {quality}
     </span>
   );

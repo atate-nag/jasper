@@ -29,19 +29,19 @@ export default async function Dashboard() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Your Analyses</h1>
+        <h1 className="text-2xl font-semibold text-[#1A1A2E]" style={{ fontFamily: 'var(--font-serif)' }}>Your Analyses</h1>
         <Link
           href="/reasonqa/analyse"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded bg-[#1B2A4A] px-4 py-2 text-sm font-medium text-white hover:bg-[#263D6A]"
         >
           New Analysis
         </Link>
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-8 text-gray-500">
+        <p className="mt-8 text-[#8B8BA3]">
           No analyses yet.{' '}
-          <Link href="/reasonqa/analyse" className="text-blue-400 hover:underline">
+          <Link href="/reasonqa/analyse" className="text-[#1B2A4A] hover:underline">
             Upload a document
           </Link>{' '}
           to get started.

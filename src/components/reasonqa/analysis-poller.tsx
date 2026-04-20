@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import type { AnalysisStatus, PassStats } from '@/lib/reasonqa/types';
 
-// Pricing per 1M tokens (USD)
 const PRICING: Record<string, { input: number; output: number }> = {
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-opus-4-6': { input: 15, output: 75 },
@@ -37,7 +35,7 @@ interface StepConfig {
   key: AnalysisStatus;
   label: string;
   description: string;
-  weight: number; // relative weight for progress bar
+  weight: number;
 }
 
 const FULL_STEPS: StepConfig[] = [
@@ -54,42 +52,53 @@ const REVERIFY_STEPS: StepConfig[] = [
   { key: 'complete', label: 'Complete', description: 'Re-verification complete', weight: 15 },
 ];
 
+const DIALECTICAL_STEPS: StepConfig[] = [
+  { key: 'pass5', label: 'Classifying schemes', description: 'Identifying argumentation patterns in each claim', weight: 10 },
+  { key: 'pass6', label: 'Constructing counter-argument', description: 'Building the strongest opposing case', weight: 25 },
+  { key: 'pass7', label: 'Synthesising', description: 'Constructing the objectively strongest position', weight: 25 },
+  { key: 'pass8', label: 'Testing robustness', description: 'Checking whether the synthesis survives challenge', weight: 20 },
+  { key: 'pass9', label: 'Mapping criticality', description: 'Scoring each claim against the objective case', weight: 15 },
+  { key: 'complete', label: 'Complete', description: 'Dialectical analysis complete', weight: 5 },
+];
+
 export function AnalysisPoller({
   id,
   initialStatus,
   createdAt,
   initialStats,
   reverify,
+  dialectical,
+  documentName,
+  docType,
+  mode,
 }: {
   id: string;
   initialStatus: AnalysisStatus;
   createdAt: string;
   initialStats?: PassStats | null;
   reverify?: boolean;
+  dialectical?: boolean;
+  documentName?: string;
+  docType?: string;
+  mode?: string;
 }) {
-  const router = useRouter();
   const [status, setStatus] = useState<AnalysisStatus>(initialStatus);
   const [stats, setStats] = useState<PassStats | null>(initialStats || null);
   const [error, setError] = useState<string | null>(null);
   const startTime = useRef(new Date(createdAt).getTime());
   const [elapsedMs, setElapsedMs] = useState(Date.now() - startTime.current);
 
-  const STEPS = reverify ? REVERIFY_STEPS : FULL_STEPS;
+  const STEPS = dialectical ? DIALECTICAL_STEPS : reverify ? REVERIFY_STEPS : FULL_STEPS;
   const TOTAL_WEIGHT = STEPS.reduce((s, step) => s + step.weight, 0);
 
-  // Elapsed time ticker — anchored to analysis created_at
   useEffect(() => {
     if (status === 'complete' || status === 'error') return;
     const timer = setInterval(() => setElapsedMs(Date.now() - startTime.current), 1000);
     return () => clearInterval(timer);
   }, [status]);
 
-  // Pipeline runs via Inngest — poller just watches status.
-
-  // Poll for status
   useEffect(() => {
     if (status === 'complete' || status === 'error') return;
-
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/reasonqa/analysis/${id}`);
@@ -100,51 +109,35 @@ export function AnalysisPoller({
         if (data.status === 'error') setError(data.error_message);
         if (data.status === 'complete') {
           clearInterval(interval);
-          // Hard reload to ensure fresh server render with complete data
           window.location.reload();
         }
       } catch { /* retry */ }
     }, 2000);
-
     return () => clearInterval(interval);
-  }, [id, status, router]);
+  }, [id, status]);
 
-  // Progress calculation — interpolate within active step using elapsed time
+  // Progress
   const currentIdx = STEPS.findIndex(s => s.key === status);
   const completedWeight = STEPS.slice(0, currentIdx).reduce((s, step) => s + step.weight, 0);
   const currentStep = STEPS[currentIdx] || STEPS[0];
-
-  // Estimate how far through the current step we are
-  // Use average of completed pass durations, or a default of 60s for the first pass
   const completedMs = (stats?.pass1?.durationMs || 0) + (stats?.pass2?.durationMs || 0) + (stats?.pass3?.durationMs || 0);
   const completedPassCount = [stats?.pass1, stats?.pass2, stats?.pass3].filter(Boolean).length;
   const avgPassMs = completedPassCount > 0 ? completedMs / completedPassCount : 60_000;
-
-  // Time spent in current step = total elapsed - sum of completed pass durations
   const timeInCurrentStep = Math.max(0, elapsedMs - completedMs);
-  // Estimated duration of current step based on its weight relative to known pass durations
   const estimatedStepMs = currentStep.weight > 0 ? avgPassMs * (currentStep.weight / 25) : avgPassMs;
-  // Fraction through current step (cap at 95% — never show 100% until actually done)
   const stepFraction = Math.min(0.95, timeInCurrentStep / Math.max(estimatedStepMs, 1));
   const interpolatedWeight = completedWeight + currentStep.weight * stepFraction;
   const progress = status === 'error' ? 0 : status === 'complete' ? 100 : Math.round((interpolatedWeight / TOTAL_WEIGHT) * 100);
 
-  // Time estimate based on completed passes
-  const completedStepWeight = completedWeight;
-  const remainingWeight = TOTAL_WEIGHT - interpolatedWeight;
   let estimatedRemainingMs = 0;
-  if (completedMs > 0 && completedStepWeight > 0) {
-    const msPerWeight = completedMs / completedStepWeight;
-    estimatedRemainingMs = msPerWeight * remainingWeight;
+  if (completedMs > 0 && completedWeight > 0) {
+    estimatedRemainingMs = (completedMs / completedWeight) * (TOTAL_WEIGHT - interpolatedWeight);
   }
 
-  // Token and cost totals
   const totalInputTokens = (stats?.pass1?.inputTokens || 0) + (stats?.pass2?.inputTokens || 0) + (stats?.pass3?.inputTokens || 0);
   const totalOutputTokens = (stats?.pass1?.outputTokens || 0) + (stats?.pass2?.outputTokens || 0) + (stats?.pass3?.outputTokens || 0);
   const totalCost = stats ? estimateCost(stats) : 0;
 
-  // Only show stuck warning if the status hasn't changed for a long time.
-  // If passes are completing, the pipeline is working even if it's slow.
   const lastChangeRef = useRef(startTime.current);
   const prevStatusRef = useRef(initialStatus);
   if (status !== prevStatusRef.current) {
@@ -152,80 +145,84 @@ export function AnalysisPoller({
     lastChangeRef.current = Date.now();
   }
   const msSinceLastChange = elapsedMs > 0 ? Date.now() - lastChangeRef.current : 0;
-  const isStuck = msSinceLastChange > 300_000 && status !== 'complete' && status !== 'error'; // same status for 5min
+  const isStuck = msSinceLastChange > 300_000 && status !== 'complete' && status !== 'error';
+
+  const uploadTime = new Date(createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const modeLabel = mode === 'quick' ? 'Quick Scan' : 'Full Analysis';
 
   if (status === 'error') {
     return (
-      <div className="flex flex-col items-center pt-16">
-        <div className="rounded-full bg-red-900/50 px-3 py-1 text-sm text-red-300">Error</div>
-        <p className="mt-4 text-sm text-gray-500">{error || 'Analysis failed'}</p>
+      <div className="mx-auto max-w-xl pt-12">
+        <div className="border-b border-[#E5E7EB] pb-4">
+          <h1 className="text-lg font-semibold text-[#1A1A2E]" style={{ fontFamily: 'var(--font-serif)' }}>
+            {documentName || 'Untitled document'}
+          </h1>
+          <p className="mt-1 text-sm text-[#8B8BA3]">
+            {docType?.toUpperCase()} &middot; Uploaded {uploadTime} &middot; {modeLabel}
+          </p>
+        </div>
+        <div className="mt-8 text-center">
+          <p className="font-medium text-[#A63D40]">Analysis failed</p>
+          <p className="mt-2 text-sm text-[#8B8BA3]">{error}</p>
+          <a
+            href="/reasonqa/analyse"
+            className="mt-4 inline-block rounded border border-[#D1D5DB] px-4 py-2 text-sm text-[#4A4A68] hover:border-[#1B2A4A]"
+          >
+            Try again
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-md pt-12">
-      {/* Current step */}
-      <div className="text-center">
-        <p className="text-lg font-medium text-white">{currentStep.label}</p>
-        <p className="mt-1 text-sm text-gray-400">{currentStep.description}</p>
+    <div className="mx-auto max-w-xl pt-8">
+      {/* Document header */}
+      <div className="border-b border-[#E5E7EB] pb-4">
+        <h1 className="text-lg font-semibold text-[#1A1A2E]" style={{ fontFamily: 'var(--font-serif)' }}>
+          {documentName || 'Untitled document'}
+        </h1>
+        <p className="mt-1 text-sm text-[#8B8BA3]">
+          {docType?.toUpperCase()} &middot; Uploaded {uploadTime} &middot; {modeLabel}
+        </p>
+      </div>
+
+      {/* Active step description — prominent, serif */}
+      <div className="mt-8 text-center">
+        <p className="text-xl text-[#1A1A2E]" style={{ fontFamily: 'var(--font-serif)', lineHeight: 1.4 }}>
+          {currentStep.description}
+        </p>
       </div>
 
       {/* Progress bar */}
-      <div className="mt-6 h-2 overflow-hidden rounded-full bg-gray-800">
+      <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-[#E5E7EB]">
         <div
-          className="h-full rounded-full bg-blue-600 transition-all duration-700"
+          className="h-full rounded-full bg-[#1B2A4A] transition-all duration-700"
           style={{ width: `${progress}%` }}
         />
       </div>
-      <div className="mt-2 flex justify-between text-xs text-gray-600">
+      <div className="mt-2 flex justify-between text-xs text-[#8B8BA3]">
         <span>{progress}%</span>
         <span>{formatDuration(elapsedMs)} elapsed</span>
       </div>
 
-      {/* Time estimate — only show once we have real data from at least one pass */}
-      {completedPassCount > 0 && status !== 'complete' && estimatedRemainingMs > 0 && (
-        <p className="mt-3 text-center text-sm text-gray-600">
-          estimated ~{formatDuration(estimatedRemainingMs)} remaining (may vary)
-        </p>
-      )}
+      {/* Time estimate or default expectation */}
+      <p className="mt-2 text-center text-xs text-[#8B8BA3]">
+        {completedPassCount > 0 && estimatedRemainingMs > 0
+          ? `Estimated ~${formatDuration(estimatedRemainingMs)} remaining`
+          : reverify
+            ? 'Typically completes in 3-5 minutes'
+            : mode === 'quick'
+              ? 'Typically completes in 1-3 minutes'
+              : 'Typically completes in 8-12 minutes'
+        }
+      </p>
+      <p className="mt-3 text-center text-xs text-[#C4C4D4]">
+        Your document is being processed and will be deleted from our servers when analysis completes.
+      </p>
 
-      {/* Stuck warning with retry options */}
-      {isStuck && (
-        <div className="mt-4 text-center">
-          <p className="text-sm text-yellow-500">
-            This analysis appears to have stalled.
-          </p>
-          <div className="mt-3 flex justify-center gap-3">
-            {(status === 'pass3' || status === 'metrics') && (
-              <button
-                onClick={() => {
-                  // Create a re-verify from this analysis
-                  fetch('/api/reasonqa/reverify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ analysisId: id }),
-                  }).then(res => res.json()).then(data => {
-                    if (data.id) window.location.href = `/reasonqa/analysis/${data.id}`;
-                  }).catch(() => {});
-                }}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-              >
-                Retry verification only
-              </button>
-            )}
-            <a
-              href="/reasonqa/analyse"
-              className="rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-sm text-gray-300 hover:border-gray-600 hover:text-white"
-            >
-              Start over
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Step breakdown */}
-      <div className="mt-8 space-y-2">
+      {/* Step sequence */}
+      <div className="mt-10 space-y-3">
         {STEPS.filter(s => s.key !== 'complete').map((step, i) => {
           const stepIdx = STEPS.findIndex(s => s.key === step.key);
           const isDone = currentIdx > stepIdx;
@@ -237,44 +234,67 @@ export function AnalysisPoller({
 
           return (
             <div key={i} className="flex items-center gap-3">
-              {/* Status indicator */}
-              <div className={`h-2 w-2 rounded-full ${
-                isDone ? 'bg-green-500' : isActive ? 'bg-blue-500 animate-pulse' : 'bg-gray-700'
-              }`} />
+              {/* Step indicator */}
+              <div className="flex h-5 w-5 items-center justify-center">
+                {isDone ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="#2D7D46" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : isActive ? (
+                  <div className="h-3 w-3 rounded-full bg-[#1B2A4A] animate-pulse" />
+                ) : (
+                  <div className="h-2.5 w-2.5 rounded-full border-[1.5px] border-[#C4C4D4]" />
+                )}
+              </div>
 
               {/* Label */}
               <span className={`flex-1 text-sm ${
-                isDone ? 'text-gray-400' : isActive ? 'text-white' : 'text-gray-600'
+                isDone ? 'text-[#4A4A68]' : isActive ? 'font-semibold text-[#1A1A2E]' : 'text-[#C4C4D4]'
               }`}>
                 {step.label}
               </span>
 
-              {/* Stats (if done) */}
+              {/* Duration (no token counts — internal detail) */}
               {passStat && (
-                <span className="text-xs text-gray-600">
-                  {formatDuration(passStat.durationMs)}
-                  {' · '}
-                  {formatTokens(passStat.inputTokens + passStat.outputTokens)} tok
-                </span>
+                <span className="text-xs text-[#8B8BA3]">{formatDuration(passStat.durationMs)}</span>
               )}
-
-              {/* Corpus stats */}
               {step.key === 'pass2' && stats?.corpus && isDone && (
-                <span className="text-xs text-gray-600">
-                  {stats.corpus.found}/{stats.corpus.fetched} sources
-                </span>
+                <span className="text-xs text-[#8B8BA3]">{stats.corpus.found} source{stats.corpus.found !== 1 ? 's' : ''} retrieved</span>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Token/cost summary */}
-      {(totalInputTokens > 0 || totalOutputTokens > 0) && (
-        <div className="mt-6 flex justify-center gap-6 border-t border-gray-800 pt-4 text-xs text-gray-600">
-          <span>{formatTokens(totalInputTokens)} in</span>
-          <span>{formatTokens(totalOutputTokens)} out</span>
-          {totalCost > 0 && <span>${totalCost.toFixed(3)}</span>}
+
+      {/* Stuck warning */}
+      {isStuck && (
+        <div className="mt-6 rounded border border-[#B8860B]/30 bg-[#FDF6E3] px-4 py-3 text-center">
+          <p className="text-sm text-[#8B6914]">This analysis appears to have stalled.</p>
+          <div className="mt-3 flex justify-center gap-3">
+            {(status === 'pass3' || status === 'metrics') && (
+              <button
+                onClick={() => {
+                  fetch('/api/reasonqa/reverify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ analysisId: id }),
+                  }).then(res => res.json()).then(data => {
+                    if (data.id) window.location.href = `/reasonqa/analysis/${data.id}`;
+                  }).catch(() => {});
+                }}
+                className="rounded bg-[#1B2A4A] px-4 py-2 text-sm text-white hover:bg-[#263D6A]"
+              >
+                Retry verification
+              </button>
+            )}
+            <a
+              href="/reasonqa/analyse"
+              className="rounded border border-[#D1D5DB] px-4 py-2 text-sm text-[#4A4A68] hover:border-[#1B2A4A]"
+            >
+              Start over
+            </a>
+          </div>
         </div>
       )}
     </div>

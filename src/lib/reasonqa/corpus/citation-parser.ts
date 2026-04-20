@@ -82,6 +82,11 @@ const SCHEDULE_RE = /schedule\s+(\d+)(?:\s*[\[\(,]\s*(?:paragraph\s*)?(\d+))?/i;
 // Paragraph citation: "at [37]" or "¶16" or "para 37"
 const PARA_RE = /(?:at\s+)\[(\d+)\]|¶(\d+)|(?:para(?:graph)?\.?\s*)(\d+)/i;
 
+// Law report citation: [1985] QB 581, [2001] 2 AC 619, [1998] AC 188
+// These are NOT neutral citations — they reference law reports, not Find Case Law.
+// We recognise them as case type but without a fetchable URI.
+const LAW_REPORT_RE = /\[(\d{4})\]\s+(?:\d+\s+)?([A-Z][A-Z\s]+)\s+(\d+)/;
+
 // Generic statute pattern: "Act Name YYYY" with optional section
 const GENERIC_STATUTE_RE = /([A-Z][\w\s()]+Act)\s+(\d{4})/i;
 
@@ -118,6 +123,21 @@ export function parseCitation(raw: string): ParsedCitation {
       number,
       uri,
       paragraph,
+    };
+  }
+
+  // Try law report citation (e.g. [1985] QB 581, [2001] 2 AC 619)
+  // These identify cases but aren't fetchable from Find Case Law
+  const lawReportMatch = raw.match(LAW_REPORT_RE);
+  if (lawReportMatch && /\bv\b/i.test(raw)) {
+    const caseName = raw.replace(LAW_REPORT_RE, '').replace(/\[.*?\]/g, '').trim();
+    return {
+      raw,
+      type: 'case',
+      caseName: caseName.replace(/\s+$/, ''),
+      year: parseInt(lawReportMatch[1]),
+      paragraph,
+      // No uri — law report citations can't be fetched from Find Case Law
     };
   }
 
@@ -160,12 +180,25 @@ export function parseCitation(raw: string): ParsedCitation {
   // Try generic statute pattern (Act Name YYYY) for unknown statutes
   const genericMatch = raw.match(GENERIC_STATUTE_RE);
   if (genericMatch) {
+    const actYear = parseInt(genericMatch[2]);
+    // Historical statutes (pre-1950) are unlikely to be on legislation.gov.uk
+    if (actYear < 1950) {
+      return {
+        raw,
+        type: 'statute',
+        actName: `${genericMatch[1]} ${genericMatch[2]}`,
+        actYear,
+        section: raw.match(SECTION_RE)?.[1],
+        paragraph,
+        // No legislationUri — marked as historical, not fetchable
+      };
+    }
     const sectionMatch = raw.match(SECTION_RE);
     return {
       raw,
       type: 'statute',
       actName: `${genericMatch[1]} ${genericMatch[2]}`,
-      actYear: parseInt(genericMatch[2]),
+      actYear,
       section: sectionMatch?.[1],
       paragraph,
     };
@@ -174,11 +207,22 @@ export function parseCitation(raw: string): ParsedCitation {
   return { raw, type: 'unknown', paragraph };
 }
 
+/** Split compound citations separated by semicolons before parsing. */
+function splitCompoundCitation(citation: string): string[] {
+  return citation.split(/;\s*/).map(s => s.trim()).filter(Boolean);
+}
+
 export function extractCitations(
   nodes: Array<{ citationStatus: string; citationSource?: string }>,
 ): ParsedCitation[] {
-  return nodes
-    .filter(n => n.citationStatus === 'Ext' && n.citationSource)
-    .map(n => parseCitation(n.citationSource!))
-    .filter(c => c.type !== 'unknown');
+  const results: ParsedCitation[] = [];
+  for (const n of nodes) {
+    if (n.citationStatus !== 'Ext' || !n.citationSource) continue;
+    const parts = splitCompoundCitation(n.citationSource);
+    for (const part of parts) {
+      const parsed = parseCitation(part);
+      if (parsed.type !== 'unknown') results.push(parsed);
+    }
+  }
+  return results;
 }

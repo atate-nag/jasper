@@ -110,6 +110,16 @@ export async function fetchCaseLaw(citation: ParsedCitation): Promise<FetchedSou
 
 export async function fetchLegislation(citation: ParsedCitation): Promise<FetchedSource> {
   if (!citation.legislationUri) {
+    // Historical statutes (pre-1950) — citation is likely accurate but not machine-retrievable
+    const isHistorical = citation.actYear && citation.actYear < 1950;
+    if (isHistorical) {
+      console.log(`[corpus] Historical statute (${citation.actYear}), not retrievable: ${citation.raw}`);
+      return {
+        citation, found: false, url: '',
+        text: `Historical statute (${citation.actYear}). Citation likely accurate but not available on legislation.gov.uk for verification.`,
+        fetchedAt: new Date(),
+      };
+    }
     return { citation, found: false, url: '', fetchedAt: new Date() };
   }
 
@@ -220,12 +230,27 @@ const MAX_CORPUS_CHARS = 40_000; // ~10k tokens — keep Pass 3 input manageable
 export function assembleSourceCorpus(fetchedSources: FetchedSource[]): string {
   if (fetchedSources.length === 0) return '';
 
+  const { assessParagraphCoverage, generateSourceQualification } = require('./paragraph-coverage');
+
   const parts: string[] = ['SOURCE MATERIALS FOR CITATION VERIFICATION:'];
 
   for (const source of fetchedSources) {
     if (source.found) {
       parts.push(`\n--- ${source.citation.raw} ---`);
       parts.push(`Source: ${source.url}`);
+
+      // Assess paragraph coverage for case law
+      if (source.text && source.citation.type === 'case') {
+        const coverage = assessParagraphCoverage(source.text);
+        if (coverage.maxParagraph > 0) {
+          parts.push(`Coverage: paragraphs ${coverage.paragraphsFound[0]}-${coverage.maxParagraph} (${coverage.paragraphsFound.length} found)`);
+          if (coverage.isTruncated) {
+            parts.push('WARNING: Text appears truncated. Do NOT verify claims referencing paragraphs beyond this range.');
+          }
+          console.log(`[corpus] ${source.citation.raw}: paragraphs ${coverage.paragraphsFound[0]}-${coverage.maxParagraph}, truncated: ${coverage.isTruncated}`);
+        }
+      }
+
       parts.push('Status: RETRIEVED\n');
 
       // If a specific paragraph was cited and we have paragraph data, show it + context

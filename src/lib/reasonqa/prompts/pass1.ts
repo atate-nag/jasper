@@ -42,6 +42,10 @@ FOR EACH NODE, DETERMINE:
 
 9. **codingNotes**: Any observations about ambiguity, implicit claims, or coding difficulty
 
+10. **sourceParagraphs**: Which paragraph(s) of the source document contain the reasoning for this claim. Use the document's own numbering (e.g. "7-9" or "14" or "22-28, 31").
+
+11. **sourceWordCount**: Approximately how many words in the source document are devoted to this claim's reasoning. A single sentence = ~20. Three paragraphs of analysis = ~300. Be approximate.
+
 WORK PARAGRAPH BY PARAGRAPH through the document. Do not skip sections. Extract every claim, even ones that seem obvious or uncontroversial — structural analysis requires completeness.
 
 Also determine:
@@ -63,7 +67,9 @@ Return your response as raw JSON matching this exact schema:
       "qualifier": "Q0|Q1|Q2",
       "edgeDrafts": ["string"],
       "sourceSection": "string (optional)",
-      "codingNotes": "string (optional)"
+      "codingNotes": "string (optional)",
+      "sourceParagraphs": "string (optional)",
+      "sourceWordCount": "number (optional)"
     }
   ]
 }
