@@ -21,8 +21,12 @@ export async function callModelZDR(
     throw new Error(`ReasonQA only supports Anthropic models (ZDR required), got: ${config.provider}`);
   }
 
+  // Gateway needs anthropic/ prefix; direct API needs bare model name
+  const useGateway = !!process.env.AI_GATEWAY_API_KEY;
+  const model = useGateway ? config.model : config.model.replace('anthropic/', '');
+
   const response = await getAnthropicZDR().messages.create({
-    model: config.model,
+    model,
     max_tokens: config.maxTokens,
     temperature: temp,
     system: systemPrompt,
