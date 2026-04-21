@@ -48,3 +48,35 @@ export async function checkUsageLimit(userId: string): Promise<{
   const usage = await getMonthlyUsage(userId);
   return { allowed: usage < limit, usage, limit, isPro };
 }
+
+const REVISION_WINDOW_DAYS = 7;
+
+/**
+ * Check if an incremental re-analysis is within the 7-day revision window.
+ * If the parent full analysis was created within the last 7 days, the
+ * incremental is free. Otherwise it costs a credit.
+ */
+export async function isWithinRevisionWindow(parentAnalysisId: string): Promise<boolean> {
+  // Walk up to the version group root (the original full analysis)
+  const { data } = await getSupabaseAdmin()
+    .from('reasonqa_analyses')
+    .select('created_at, analysis_type, parent_analysis_id, version_group_id')
+    .eq('id', parentAnalysisId)
+    .single();
+
+  if (!data) return false;
+
+  // Find the root analysis (the original full analysis in this version chain)
+  let rootCreatedAt = data.created_at;
+  if (data.analysis_type === 'incremental' && data.version_group_id) {
+    const { data: root } = await getSupabaseAdmin()
+      .from('reasonqa_analyses')
+      .select('created_at')
+      .eq('id', data.version_group_id)
+      .single();
+    if (root) rootCreatedAt = root.created_at;
+  }
+
+  const windowMs = REVISION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return Date.now() - new Date(rootCreatedAt).getTime() < windowMs;
+}

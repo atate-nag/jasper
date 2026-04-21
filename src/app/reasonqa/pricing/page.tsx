@@ -43,6 +43,7 @@ export default function Pricing() {
           <p className="text-sm text-[#8B8BA3]">per month</p>
           <ul className="mt-6 space-y-3 text-sm text-[#4A4A68]">
             <li>2 analyses per month</li>
+            <li>Unlimited revisions within 7 days</li>
             {features.map(f => <li key={f}>{f}</li>)}
           </ul>
           <button
@@ -60,7 +61,8 @@ export default function Pricing() {
           <p className="mt-1 text-3xl font-semibold text-[#1A1A2E]">&pound;200</p>
           <p className="text-sm text-[#8B8BA3]">per month</p>
           <ul className="mt-6 space-y-3 text-sm text-[#4A4A68]">
-            <li>20 analyses per month</li>
+            <li>20 document analyses per month</li>
+            <li className="font-medium text-[#1B2A4A]">Unlimited revisions within 7 days</li>
             {features.map(f => <li key={f}>{f}</li>)}
             <li className="font-medium text-[#1B2A4A]">Priority processing</li>
           </ul>
@@ -80,7 +82,8 @@ export default function Pricing() {
           <p className="text-sm text-[#8B8BA3]">per year</p>
           <ul className="mt-6 space-y-3 text-sm text-[#4A4A68]">
             <li className="font-medium text-[#2D7D46]">Save &pound;400</li>
-            <li>20 analyses per month</li>
+            <li>20 document analyses per month</li>
+            <li className="font-medium text-[#1B2A4A]">Unlimited revisions within 7 days</li>
             {features.map(f => <li key={f}>{f}</li>)}
             <li className="font-medium text-[#1B2A4A]">Priority processing</li>
           </ul>
@@ -101,7 +104,8 @@ export default function Pricing() {
           <ul className="mt-6 space-y-3 text-sm text-[#4A4A68]">
             <li>5+ members</li>
             <li>Annual billing</li>
-            <li>20 analyses per seat/month</li>
+            <li>20 document analyses per seat/month</li>
+            <li className="font-medium text-[#1B2A4A]">Unlimited revisions within 7 days</li>
             {features.map(f => <li key={f}>{f}</li>)}
             <li className="font-medium text-[#1B2A4A]">Priority processing</li>
           </ul>

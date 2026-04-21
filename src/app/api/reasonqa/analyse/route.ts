@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { parseDocument, validateDocument } from '@/lib/reasonqa/parser';
-import { checkUsageLimit } from '@/lib/reasonqa/stripe';
+import { checkUsageLimit, isWithinRevisionWindow } from '@/lib/reasonqa/stripe';
 import { inngest } from '@/lib/reasonqa/inngest';
 import { computeTextSimilarity } from '@/lib/reasonqa/diff';
 import { decryptText } from '@/lib/reasonqa/encryption';
@@ -60,7 +60,20 @@ export async function POST(req: Request): Promise<Response> {
         return Response.json({ error: 'Parent analysis not found or document expired' }, { status: 400 });
       }
 
-      // No usage limit check for incremental analyses
+      // Free within 7-day revision window; costs a credit outside it
+      const withinWindow = await isWithinRevisionWindow(parentAnalysisId);
+      if (!withinWindow) {
+        const { allowed, usage, limit, isPro } = await checkUsageLimit(user.id);
+        if (!allowed) {
+          return Response.json({
+            error: isPro
+              ? `Revision window expired and monthly limit reached (${usage}/${limit}).`
+              : `Revision window expired and free tier limit reached (${usage}/${limit}).`,
+            upgradeUrl: isPro ? undefined : '/reasonqa/pricing',
+          }, { status: 403 });
+        }
+      }
+
       const { data, error } = await getSupabaseAdmin()
         .from('reasonqa_analyses')
         .insert({
@@ -72,7 +85,7 @@ export async function POST(req: Request): Promise<Response> {
           doc_size_bytes: buffer.length,
           mode: 'full',
           dialectical: false,
-          analysis_type: 'incremental',
+          analysis_type: withinWindow ? 'incremental' : 'full',
           parent_analysis_id: parentAnalysisId,
           version_group_id: parent.version_group_id || parentAnalysisId,
           version_number: (parent.version_number || 1) + 1,

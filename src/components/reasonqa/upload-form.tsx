@@ -326,7 +326,7 @@ export function UploadForm() {
                   Update &ldquo;{c.title}&rdquo; (v{c.version})
                 </p>
                 <p className="mt-0.5 text-xs text-[#8B8BA3]">
-                  Incremental analysis &mdash; re-checks only changed sections. ~2 min, doesn&apos;t count against your monthly limit.
+                  Incremental analysis &mdash; re-checks only changed sections. ~2 min, free within 7 days of the original analysis.
                 </p>
               </button>
             ))}
