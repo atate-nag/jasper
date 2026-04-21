@@ -98,6 +98,13 @@ export default function SecurityPage() {
           <ul className="mt-1 list-inside list-disc space-y-1">
             <li>Your account (email, subscription status)</li>
             <li>Generated reports (until you delete them)</li>
+            <li>
+              If you use incremental re-analysis, your original document text is
+              retained in encrypted form (AES-256-GCM) for up to 30 days to
+              enable comparison with revised versions. You can delete it at any
+              time. If you do not use incremental re-analysis, your document is
+              deleted immediately after processing.
+            </li>
           </ul>
           <p className="mt-2">
             We do <strong className="text-[#1A1A2E]">not</strong> store your source

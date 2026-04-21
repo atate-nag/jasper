@@ -114,7 +114,7 @@ function SourceRefBadges({ nodeId, nodeSourceMap }: { nodeId: string; nodeSource
   );
 }
 
-type Tab = 'verification' | 'counter-authority' | 'issues' | 'claims' | 'structure' | 'sources' | 'dialectical';
+type Tab = 'changes' | 'verification' | 'counter-authority' | 'issues' | 'claims' | 'structure' | 'sources' | 'dialectical';
 
 const SEVERITY_STYLES: Record<string, string> = {
   high: 'border-l-[#A63D40]',
@@ -165,8 +165,16 @@ const VERIFICATION_STYLES: Record<string, string> = {
   SOURCE_DOCUMENT: 'text-[#5B7BA3]',
 };
 
-export function ReportTabs({ analysis }: { analysis: Analysis }) {
-  const [tab, setTab] = useState<Tab>('verification');
+export interface VersionSibling {
+  id: string;
+  version_number: number;
+  analysis_type: string;
+  created_at: string;
+}
+
+export function ReportTabs({ analysis, versionSiblings }: { analysis: Analysis; versionSiblings?: VersionSibling[] }) {
+  const isIncremental = analysis.analysis_type === 'incremental';
+  const [tab, setTab] = useState<Tab>(isIncremental ? 'changes' : 'verification');
   const { pass1_output: p1, pass2_output: p2, metrics_output: m, pass3_output: p3, pass4_output: p4, sources } = analysis;
 
   // Build a lookup: nodeId → source refIds
@@ -195,7 +203,9 @@ export function ReportTabs({ analysis }: { analysis: Analysis }) {
   const failedCount = verifications.filter(v => v.status === 'FAILED').length;
   const untraceableCount = verifications.filter(v => v.status === 'UNTRACEABLE').length;
 
+  const meta = analysis.incremental_meta;
   const tabs: { key: Tab; label: string }[] = [
+    ...(isIncremental && meta ? [{ key: 'changes' as Tab, label: `Changes (${meta.issueDelta.resolved.length} resolved)` }] : []),
     { key: 'verification', label: `Verification (${verifications.length})` },
     ...(counterAuthorityIssues.length > 0 ? [{ key: 'counter-authority' as Tab, label: `Counter-Authorities (${counterAuthorityIssues.length})` }] : []),
     { key: 'issues', label: `Structural Issues (${structuralCount})` },
@@ -217,6 +227,20 @@ export function ReportTabs({ analysis }: { analysis: Analysis }) {
         <h1 className="text-xl font-semibold text-[#1A1A2E]" style={{ fontFamily: 'var(--font-serif)' }}>
           {analysis.title || 'Untitled document'}
         </h1>
+        {versionSiblings && versionSiblings.length > 1 && (
+          <select
+            value={analysis.id}
+            onChange={(e) => { window.location.href = `/reasonqa/analysis/${e.target.value}`; }}
+            className="rounded border border-[#D1D5DB] bg-[#F8F9FA] px-2 py-1 text-xs text-[#4A4A68]"
+          >
+            {versionSiblings.map(v => (
+              <option key={v.id} value={v.id}>
+                v{v.version_number} — {new Date(v.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                {v.analysis_type === 'incremental' ? ' (incremental)' : ''}
+              </option>
+            ))}
+          </select>
+        )}
         <QualityBadge quality={p4?.qualityAdjustment?.adjustedRating || p3?.assessment?.quality || null} />
         {m && (
           <span className="text-sm text-[#8B8BA3]">
@@ -300,6 +324,7 @@ export function ReportTabs({ analysis }: { analysis: Analysis }) {
 
       {/* Tab content */}
       <div className="mt-6">
+        {tab === 'changes' && meta && <DeltaTab meta={meta} />}
         {tab === 'counter-authority' && <CounterAuthorityTab issues={counterAuthorityIssues} nodes={p1?.nodes || []} nodeSourceMap={nodeSourceMap} />}
         {tab === 'issues' && <IssuesTab issues={structuralOnlyIssues} nodes={p1?.nodes || []} nodeSourceMap={nodeSourceMap} pass4={p4} />}
         {tab === 'claims' && <ClaimsTab nodes={p1?.nodes || []} verifications={p3?.verifications || []} nodeSourceMap={nodeSourceMap} />}
@@ -908,6 +933,99 @@ function DialecticalTab({ analysis }: { analysis: Analysis }) {
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function DeltaTab({ meta }: { meta: NonNullable<Analysis['incremental_meta']> }) {
+  const { diffSummary: ds, issueDelta: d } = meta;
+
+  return (
+    <div className="space-y-6">
+      {/* Diff summary */}
+      <div className="rounded border border-[#E5E7EB] bg-[#F8F9FA] px-4 py-3 text-sm text-[#4A4A68]">
+        {ds.paragraphsModified} paragraph{ds.paragraphsModified !== 1 ? 's' : ''} modified,{' '}
+        {ds.paragraphsAdded} added, {ds.paragraphsRemoved} removed,{' '}
+        {ds.paragraphsUnchanged} unchanged
+      </div>
+
+      {/* Quality change */}
+      {d.qualityChange && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="font-medium text-[#1A1A2E]">Quality:</span>
+          <span className="text-[#8B8BA3]">{d.qualityChange.from}</span>
+          <span className="text-[#4A4A68]">&rarr;</span>
+          <span className="font-medium text-[#1A1A2E]">{d.qualityChange.to}</span>
+        </div>
+      )}
+
+      {/* Resolved issues */}
+      {d.resolved.length > 0 && (
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-medium text-[#2D7D46]">
+            Resolved ({d.resolved.length})
+          </h3>
+          <div className="mt-2 space-y-2">
+            {d.resolved.map((issue, i) => (
+              <div key={i} className="border-l-4 border-l-[#2D7D46] bg-[#E8F5E9] py-2 pl-4 pr-4">
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#2D7D46]">resolved</span>
+                <span className="ml-2 text-xs text-[#4A4A68]">{ISSUE_TYPE_LABELS[issue.issueType] || issue.issueType}</span>
+                <p className="mt-1 text-sm text-[#4A4A68]">{issue.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New issues */}
+      {d.new.length > 0 && (
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-medium text-[#A63D40]">
+            New Issues ({d.new.length})
+          </h3>
+          <div className="mt-2 space-y-2">
+            {d.new.map((issue, i) => (
+              <div key={i} className={`border-l-4 bg-[#FAFBFC] py-2 pl-4 pr-4 ${SEVERITY_STYLES[issue.severity] || SEVERITY_STYLES.low}`}>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[#A63D40]">new</span>
+                <span className="ml-2 text-xs text-[#8B8BA3]">{issue.severity}</span>
+                <span className="ml-2 text-xs text-[#8B8BA3]">{ISSUE_TYPE_LABELS[issue.issueType] || issue.issueType}</span>
+                <p className="mt-1 text-sm text-[#4A4A68]">{issue.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modified issues */}
+      {d.modified.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-[#B8860B]">Modified ({d.modified.length})</h3>
+          <div className="mt-2 space-y-2">
+            {d.modified.map((issue, i) => (
+              <div key={i} className="border-l-4 border-l-[#B8860B] bg-[#FAFBFC] py-2 pl-4 pr-4">
+                <span className="text-xs text-[#B8860B]">{ISSUE_TYPE_LABELS[issue.issueType] || issue.issueType}</span>
+                <p className="mt-1 text-xs text-[#8B8BA3]">{issue.change}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Unchanged */}
+      {d.unchanged.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-sm text-[#8B8BA3] hover:text-[#4A4A68]">
+            Unchanged ({d.unchanged.length} issues)
+          </summary>
+          <div className="mt-2 space-y-1">
+            {d.unchanged.map((issue, i) => (
+              <div key={i} className="py-1 pl-4 text-xs text-[#8B8BA3]">
+                {ISSUE_TYPE_LABELS[issue.issueType] || issue.issueType} — {issue.nodeIds.join(', ')}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );

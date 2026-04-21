@@ -11,7 +11,7 @@ export default async function Dashboard() {
 
   const { data: analyses } = await getSupabaseAdmin()
     .from('reasonqa_analyses')
-    .select('id, status, title, doc_type, created_at, completed_at, pass3_output')
+    .select('id, status, title, doc_type, created_at, completed_at, pass3_output, version_group_id, version_number, analysis_type')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -24,6 +24,9 @@ export default async function Dashboard() {
     doc_type: a.doc_type,
     created_at: a.created_at,
     quality: a.pass3_output?.assessment?.quality || null,
+    version_group_id: a.version_group_id || a.id,
+    version_number: a.version_number || 1,
+    analysis_type: a.analysis_type || 'full',
   }));
 
   return (

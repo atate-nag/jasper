@@ -226,6 +226,29 @@ export type AnalysisStatus =
 
 export type AnalysisMode = 'full' | 'quick';
 
+export type AnalysisType = 'full' | 'quick' | 'reverify' | 'incremental';
+
+// ── Incremental Re-Analysis ─────────────────────────────────────
+
+export interface IssueDelta {
+  resolved: Array<{ issueType: string; description: string; nodeIds: string[] }>;
+  new: Array<{ issueType: string; description: string; nodeIds: string[]; severity: string }>;
+  unchanged: Array<{ issueType: string; nodeIds: string[] }>;
+  modified: Array<{ issueType: string; nodeIds: string[]; change: string }>;
+  qualityChange: { from: string; to: string } | null;
+}
+
+export interface IncrementalMeta {
+  parentId: string;
+  diffSummary: { paragraphsModified: number; paragraphsAdded: number; paragraphsRemoved: number; paragraphsUnchanged: number; changeRatio: number };
+  affectedNodeIds: string[];
+  unchangedNodeIds: string[];
+  newNodeIds: string[];
+  removedNodeIds: string[];
+  nodeIdMapping: Record<string, string>;  // oldId → newId
+  issueDelta: IssueDelta;
+}
+
 export interface PassStat {
   durationMs: number;
   inputTokens: number;
@@ -255,10 +278,14 @@ export interface Analysis {
   user_id: string;
   status: AnalysisStatus;
   mode: AnalysisMode;
+  analysis_type: AnalysisType;
   title: string | null;
   doc_type: string;
   doc_text: string;
   doc_size_bytes: number | null;
+  parent_analysis_id: string | null;
+  version_group_id: string | null;
+  version_number: number;
   pass1_output: Pass1Output | null;
   pass2_output: Pass2Output | null;
   metrics_output: DAGMetrics | null;
@@ -272,7 +299,9 @@ export interface Analysis {
   pass9_output: Pass9Output | null;
   sources: SourceReference[] | null;
   pass_stats: PassStats | null;
+  incremental_meta: IncrementalMeta | null;
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
+  doc_text_expires_at: string | null;
 }

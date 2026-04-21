@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { parseDocument, validateDocument } from '@/lib/reasonqa/parser';
 import { checkUsageLimit } from '@/lib/reasonqa/stripe';
 import { inngest } from '@/lib/reasonqa/inngest';
+import { computeTextSimilarity } from '@/lib/reasonqa/diff';
+import { decryptText } from '@/lib/reasonqa/encryption';
 
 const MIME_MAP: Record<string, string> = {
   'application/pdf': 'pdf',
@@ -20,16 +22,6 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const { allowed, usage, limit, isPro } = await checkUsageLimit(user.id);
-    if (!allowed) {
-      return Response.json({
-        error: isPro
-          ? `Monthly limit reached (${usage}/${limit}). Contact us for higher volume.`
-          : `Free tier limit reached (${usage}/${limit}). Upgrade to Pro for 20 analyses/month.`,
-        upgradeUrl: isPro ? undefined : '/reasonqa/pricing',
-      }, { status: 403 });
-    }
-
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     if (!file) {
@@ -52,6 +44,73 @@ export async function POST(req: Request): Promise<Response> {
 
     const mode = (formData.get('mode') as string) === 'quick' ? 'quick' : 'full';
     const dialectical = formData.get('dialectical') === 'true';
+    const parentAnalysisId = formData.get('parentAnalysisId') as string | null;
+
+    // ── Incremental re-analysis path ──────────────────────────────
+    if (parentAnalysisId && mode === 'full') {
+      // Verify parent exists, belongs to user, and has encrypted doc text
+      const { data: parent } = await getSupabaseAdmin()
+        .from('reasonqa_analyses')
+        .select('id, user_id, version_group_id, version_number, doc_text_encrypted')
+        .eq('id', parentAnalysisId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!parent || !parent.doc_text_encrypted) {
+        return Response.json({ error: 'Parent analysis not found or document expired' }, { status: 400 });
+      }
+
+      // No usage limit check for incremental analyses
+      const { data, error } = await getSupabaseAdmin()
+        .from('reasonqa_analyses')
+        .insert({
+          user_id: user.id,
+          status: 'pending',
+          title: file.name.replace(/\.[^.]+$/, ''),
+          doc_type: docType,
+          doc_text: text,
+          doc_size_bytes: buffer.length,
+          mode: 'full',
+          dialectical: false,
+          analysis_type: 'incremental',
+          parent_analysis_id: parentAnalysisId,
+          version_group_id: parent.version_group_id || parentAnalysisId,
+          version_number: (parent.version_number || 1) + 1,
+        })
+        .select('id')
+        .single();
+
+      if (error || !data) {
+        console.error('[reasonqa] Failed to create incremental analysis:', error?.message);
+        return Response.json({ error: 'Failed to create analysis' }, { status: 500 });
+      }
+
+      await inngest.send({
+        name: 'reasonqa/incremental',
+        data: { analysisId: data.id, parentAnalysisId, userId: user.id },
+      });
+
+      return Response.json({ id: data.id });
+    }
+
+    // ── Revision detection (only for full mode, no explicit parent) ──
+    if (mode === 'full' && !parentAnalysisId) {
+      const candidates = await detectRevisionCandidates(user.id, text);
+      if (candidates.length > 0) {
+        return Response.json({ revisionDetected: true, candidates, documentText: undefined });
+      }
+    }
+
+    // ── Standard new analysis path ────────────────────────────────
+    const { allowed, usage, limit, isPro } = await checkUsageLimit(user.id);
+    if (!allowed) {
+      return Response.json({
+        error: isPro
+          ? `Monthly limit reached (${usage}/${limit}). Contact us for higher volume.`
+          : `Free tier limit reached (${usage}/${limit}). Upgrade to Pro for 20 analyses/month.`,
+        upgradeUrl: isPro ? undefined : '/reasonqa/pricing',
+      }, { status: 403 });
+    }
 
     const { data, error } = await getSupabaseAdmin()
       .from('reasonqa_analyses')
@@ -64,6 +123,8 @@ export async function POST(req: Request): Promise<Response> {
         doc_size_bytes: buffer.length,
         mode,
         dialectical,
+        analysis_type: mode === 'quick' ? 'quick' : 'full',
+        version_group_id: null, // Set to own ID after insert
       })
       .select('id')
       .single();
@@ -73,7 +134,12 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: 'Failed to create analysis' }, { status: 500 });
     }
 
-    // Trigger Inngest background job
+    // Set version_group_id to own ID for new analyses
+    await getSupabaseAdmin()
+      .from('reasonqa_analyses')
+      .update({ version_group_id: data.id })
+      .eq('id', data.id);
+
     await inngest.send({
       name: 'reasonqa/analyse',
       data: { analysisId: data.id, userId: user.id, mode, dialectical },
@@ -85,4 +151,64 @@ export async function POST(req: Request): Promise<Response> {
     console.error('[reasonqa] Upload failed:', message);
     return Response.json({ error: message }, { status: 500 });
   }
+}
+
+// ── Revision Detection ──────────────────────────────────────────
+
+interface RevisionCandidate {
+  id: string;
+  title: string;
+  version: number;
+  createdAt: string;
+  similarity: number;
+}
+
+async function detectRevisionCandidates(
+  userId: string,
+  newText: string,
+): Promise<RevisionCandidate[]> {
+  // Get user's recent completed full analyses with non-expired encrypted doc text
+  const { data: recent } = await getSupabaseAdmin()
+    .from('reasonqa_analyses')
+    .select('id, title, version_number, created_at, doc_text_encrypted, doc_text_enc_iv')
+    .eq('user_id', userId)
+    .eq('status', 'complete')
+    .in('analysis_type', ['full', 'incremental'])
+    .not('doc_text_encrypted', 'is', null)
+    .gt('doc_text_expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (!recent || recent.length === 0) return [];
+
+  const newOpening = newText.substring(0, 2000);
+  const candidates: RevisionCandidate[] = [];
+
+  for (const analysis of recent) {
+    if (!analysis.doc_text_encrypted || !analysis.doc_text_enc_iv) continue;
+
+    try {
+      const parentText = decryptText(
+        Buffer.from(analysis.doc_text_encrypted),
+        Buffer.from(analysis.doc_text_enc_iv),
+      );
+      const parentOpening = parentText.substring(0, 2000);
+      const similarity = computeTextSimilarity(newOpening, parentOpening);
+
+      if (similarity > 0.6) {
+        candidates.push({
+          id: analysis.id,
+          title: analysis.title || 'Untitled',
+          version: analysis.version_number || 1,
+          createdAt: analysis.created_at,
+          similarity,
+        });
+      }
+    } catch {
+      // Decryption failed — skip this candidate
+      continue;
+    }
+  }
+
+  return candidates.sort((a, b) => b.similarity - a.similarity).slice(0, 3);
 }

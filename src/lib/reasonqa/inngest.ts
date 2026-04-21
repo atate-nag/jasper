@@ -19,7 +19,14 @@ import { extractCitations } from './corpus/citation-parser';
 import { fetchAllSources, assembleSourceCorpus } from './corpus/fetcher';
 import { retrieveInterpretiveContext, formatInterpretiveContext } from './corpus/interpretive/assembler';
 import { logUsage } from '@/lib/usage';
-import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output, Pass5Output, Pass6Output, Pass7Output, Pass8Output, Pass9Output, PassStats, SourceReference, DAGMetrics } from './types';
+import type { Pass1Output, Pass2Output, Pass3Output, Pass4Output, Pass5Output, Pass6Output, Pass7Output, Pass8Output, Pass9Output, PassStats, SourceReference, DAGMetrics, ClaimNode } from './types';
+import { encryptText, decryptText } from './encryption';
+import { splitIntoParagraphs, diffParagraphs, computeTextSimilarity } from './diff';
+import {
+  mapChangesToNodes, buildIncrementalPass1Prompt, mergePass1,
+  buildIncrementalPass2Prompt, mergePass2,
+  buildIncrementalPass3Prompt, mergePass3, computeIssueDelta,
+} from './incremental';
 
 export const inngest = new Inngest({ id: 'reasonqa' });
 
@@ -271,8 +278,19 @@ export const analyseDocument = inngest.createFunction(
         console.log(`[reasonqa:inngest] Dialectical complete: ${parsed.scores?.length} nodes scored`);
       });
     } else {
-      // Non-dialectical: mark complete after Pass 4
+      // Non-dialectical: encrypt doc text for incremental re-analysis, then finalize
       await step.run('finalize', async () => {
+        // Encrypt original text for 30-day retention (enables incremental re-analysis)
+        try {
+          const { ciphertext, iv } = encryptText(documentText);
+          await updateAnalysis(analysisId, {
+            doc_text_encrypted: ciphertext,
+            doc_text_enc_iv: iv,
+            doc_text_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+        } catch (err) {
+          console.warn('[reasonqa:inngest] Doc encryption skipped:', err instanceof Error ? err.message : err);
+        }
         await updateAnalysis(analysisId, {
           completed_at: new Date().toISOString(),
           doc_text: '[deleted after processing]',
@@ -448,4 +466,215 @@ export const runDialectical = inngest.createFunction(
   },
 );
 
-export const functions = [analyseDocument, reverifyDocument, runDialectical];
+// ── Incremental Re-Analysis ──────────────────────────────────────
+
+export const incrementalAnalysis = inngest.createFunction(
+  {
+    id: 'reasonqa-incremental',
+    retries: 1,
+    triggers: [{ event: 'reasonqa/incremental' }],
+  },
+  async ({ event, step }) => {
+    const { analysisId, parentAnalysisId, userId } = event.data as {
+      analysisId: string; parentAnalysisId: string; userId: string;
+    };
+
+    // Load parent analysis + decrypt original doc text
+    const { data: parent } = await getSupabaseAdmin().from('reasonqa_analyses')
+      .select('doc_text_encrypted, doc_text_enc_iv, pass1_output, pass2_output, pass3_output, pass4_output, metrics_output, sources, title')
+      .eq('id', parentAnalysisId).single();
+
+    if (!parent?.pass1_output || !parent?.doc_text_encrypted) {
+      await updateAnalysis(analysisId, { status: 'error', error_message: 'Parent analysis missing data or expired doc text' });
+      return;
+    }
+
+    const parentDocText = decryptText(
+      Buffer.from(parent.doc_text_encrypted),
+      Buffer.from(parent.doc_text_enc_iv),
+    );
+    const parentPass1 = parent.pass1_output as Pass1Output;
+    const parentPass2 = parent.pass2_output as Pass2Output;
+    const parentPass3 = parent.pass3_output as Pass3Output;
+    const parentMetrics = parent.metrics_output as DAGMetrics;
+
+    // Load new doc text
+    const { data: newAnalysis } = await getSupabaseAdmin().from('reasonqa_analyses')
+      .select('doc_text').eq('id', analysisId).single();
+    if (!newAnalysis?.doc_text) {
+      await updateAnalysis(analysisId, { status: 'error', error_message: 'New document text not found' });
+      return;
+    }
+    const newDocText = newAnalysis.doc_text as string;
+
+    // Step 1: Paragraph diff
+    const { diff, affected } = await step.run('diff', async () => {
+      await updateAnalysis(analysisId, { status: 'pass1' });
+      console.log(`[reasonqa:incremental] Diffing documents for ${analysisId}`);
+
+      const oldParas = splitIntoParagraphs(parentDocText);
+      const newParas = splitIntoParagraphs(newDocText);
+      const diff = diffParagraphs(oldParas, newParas);
+
+      console.log(`[reasonqa:incremental] Diff: ${diff.unchanged.length} unchanged, ${diff.modified.length} modified, ${diff.added.length} added, ${diff.removed.length} removed, ratio=${diff.changeRatio.toFixed(2)}`);
+
+      if (diff.changeRatio > 0.6) {
+        console.log('[reasonqa:incremental] Change ratio > 0.6 — falling back to full re-analysis');
+        // Trigger a full analysis instead
+        await updateAnalysis(analysisId, { analysis_type: 'full' });
+        await inngest.send({ name: 'reasonqa/analyse', data: { analysisId, userId, mode: 'full' } });
+        return { diff, affected: null, fallback: true };
+      }
+
+      const affected = mapChangesToNodes(parentPass1.nodes, parentPass2.edges, diff);
+      console.log(`[reasonqa:incremental] Affected: ${affected.affectedNodeIds.length} nodes, unchanged: ${affected.unchangedNodeIds.length}, removed: ${affected.removedNodeIds.length}`);
+
+      return { diff, affected, fallback: false };
+    });
+
+    if (!affected) return; // Fell back to full analysis
+
+    const unchangedNodes = parentPass1.nodes.filter(n => affected.unchangedNodeIds.includes(n.id));
+    const affectedParaIndices = [
+      ...diff.modified.map(m => m[1]),  // new paragraph indices for modified
+      ...diff.added,
+    ];
+
+    // Step 2: Incremental Pass 1
+    const { mergedNodes, nodeIdMapping } = await step.run('incremental-pass1', async () => {
+      console.log(`[reasonqa:incremental] Pass 1 (incremental) for ${analysisId}`);
+      const prompt = buildIncrementalPass1Prompt(newDocText, unchangedNodes, affectedParaIndices);
+      const result = await callModelWithTimeout(REASONQA_SONNET, prompt.systemPrompt, [{ role: 'user', content: prompt.userMessage }], 0.2, 'incr:pass1');
+      logUsage(result.usage, 'reasonqa:incr-pass1', userId);
+      const parsed = parseJsonResponse(result.text) as { newNodes: ClaimNode[]; modifiedNodeIds: string[] };
+      const merged = mergePass1(
+        parentPass1.nodes,
+        affected.removedNodeIds,
+        parsed.newNodes || [],
+        parsed.modifiedNodeIds || [],
+      );
+      console.log(`[reasonqa:incremental] Pass 1: ${merged.mergedNodes.length} total nodes, ${(parsed.newNodes || []).length} new/modified`);
+      return merged;
+    });
+
+    // Step 3: Incremental Pass 2 + corpus
+    const { mergedEdges, mergedPass2, metrics, corpus } = await step.run('incremental-pass2-corpus', async () => {
+      await updateAnalysis(analysisId, { status: 'pass2' });
+      console.log(`[reasonqa:incremental] Pass 2 + corpus for ${analysisId}`);
+
+      // Build edges
+      const prompt = buildIncrementalPass2Prompt(newDocText, mergedNodes, parentPass2.edges, affected.affectedNodeIds);
+      const result = await callModelWithTimeout(REASONQA_SONNET, prompt.systemPrompt, [{ role: 'user', content: prompt.userMessage }], 0.2, 'incr:pass2');
+      logUsage(result.usage, 'reasonqa:incr-pass2', userId);
+      const parsed = parseJsonResponse(result.text) as { edges: Pass2Output['edges']; structuralIssues: Pass2Output['structuralIssues'] };
+
+      const mergedEdges = mergePass2(parentPass2.edges, parsed.edges || [], affected.affectedNodeIds, affected.removedNodeIds);
+      const mergedPass2: Pass2Output = {
+        edges: mergedEdges,
+        structuralIssues: [...parentPass2.structuralIssues.filter(
+          si => !si.nodeIds.some(id => affected.affectedNodeIds.includes(id) || affected.removedNodeIds.includes(id))
+        ), ...(parsed.structuralIssues || [])],
+      };
+
+      const metrics = computeDAGMetrics(mergedNodes, mergedEdges);
+
+      // Fetch corpus for affected citations only
+      const affectedCitationNodes = mergedNodes.filter(n => affected.affectedNodeIds.includes(n.id) && n.citationStatus === 'Ext');
+      const citations = extractCitations(affectedCitationNodes);
+      let corpus = '';
+      if (citations.length > 0) {
+        const fetched = await fetchAllSources(citations);
+        corpus = assembleSourceCorpus(fetched);
+      }
+
+      await updateAnalysis(analysisId, { pass1_output: { ...parentPass1, nodes: mergedNodes }, pass2_output: mergedPass2, metrics_output: metrics });
+
+      return { mergedEdges, mergedPass2, metrics, corpus };
+    });
+
+    // Step 4: Incremental Pass 3
+    const mergedPass3 = await step.run('incremental-pass3', async () => {
+      await updateAnalysis(analysisId, { status: 'pass3' });
+      console.log(`[reasonqa:incremental] Pass 3 (incremental) for ${analysisId}`);
+
+      const prompt = buildIncrementalPass3Prompt(newDocText, mergedNodes, corpus, affected.affectedNodeIds, parentPass3.verifications);
+      const result = await callModelWithTimeout(REASONQA_OPUS, prompt.systemPrompt, [{ role: 'user', content: prompt.userMessage }], 0.2, 'incr:pass3', OPUS_TIMEOUT_MS);
+      logUsage(result.usage, 'reasonqa:incr-pass3', userId);
+      const parsed = parseJsonResponse(result.text) as { verifications: Pass3Output['verifications'] };
+
+      const merged = mergePass3(parentPass3, parsed.verifications || [], affected.affectedNodeIds, affected.removedNodeIds);
+      await updateAnalysis(analysisId, { pass3_output: merged });
+      return merged;
+    });
+
+    // Step 5: Full Pass 4 on merged data
+    await step.run('pass4-reconstruct', async () => {
+      console.log(`[reasonqa:incremental] Pass 4 (full) for ${analysisId}`);
+      const mergedPass1: Pass1Output = { ...parentPass1, nodes: mergedNodes };
+      const p4 = buildPass4Prompt(mergedPass1, mergedPass2, mergedPass3, metrics);
+      const result = await callModelWithTimeout(REASONQA_OPUS, p4.systemPrompt, [{ role: 'user', content: p4.userMessage }], 0.2, 'incr:pass4', OPUS_TIMEOUT_MS);
+      logUsage(result.usage, 'reasonqa:incr-pass4', userId);
+      const pass4: Pass4Output = parseJsonResponse(result.text) as Pass4Output;
+
+      // Compute issue delta
+      const parentIssues = [
+        ...(parentPass2.structuralIssues || []),
+        ...(parentPass3.interpretiveIssues || []),
+      ];
+      const currentIssues = [
+        ...(mergedPass2.structuralIssues || []),
+        ...(mergedPass3.interpretiveIssues || []),
+      ];
+      const issueDelta = computeIssueDelta(parentIssues, currentIssues, nodeIdMapping);
+
+      // Quality change
+      const parentQuality = parent.pass4_output
+        ? (parent.pass4_output as Pass4Output).qualityAdjustment?.adjustedRating
+        : parentPass3.assessment?.quality;
+      const newQuality = pass4.qualityAdjustment?.adjustedRating || mergedPass3.assessment?.quality;
+      if (parentQuality && newQuality && parentQuality !== newQuality) {
+        issueDelta.qualityChange = { from: parentQuality, to: newQuality };
+      }
+
+      // Encrypt new doc text
+      try {
+        const { ciphertext, iv } = encryptText(newDocText);
+        await updateAnalysis(analysisId, {
+          doc_text_encrypted: ciphertext,
+          doc_text_enc_iv: iv,
+          doc_text_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (err) {
+        console.warn('[reasonqa:incremental] Doc encryption skipped:', err instanceof Error ? err.message : err);
+      }
+
+      const incrementalMeta = {
+        parentId: parentAnalysisId,
+        diffSummary: {
+          paragraphsModified: diff.modified.length,
+          paragraphsAdded: diff.added.length,
+          paragraphsRemoved: diff.removed.length,
+          paragraphsUnchanged: diff.unchanged.length,
+          changeRatio: diff.changeRatio,
+        },
+        affectedNodeIds: affected.affectedNodeIds,
+        unchangedNodeIds: affected.unchangedNodeIds,
+        newNodeIds: mergedNodes.filter(n => !parentPass1.nodes.some(pn => pn.id === n.id)).map(n => n.id),
+        removedNodeIds: affected.removedNodeIds,
+        nodeIdMapping,
+        issueDelta,
+      };
+
+      await updateAnalysis(analysisId, {
+        pass4_output: pass4,
+        incremental_meta: incrementalMeta,
+        status: 'complete',
+        completed_at: new Date().toISOString(),
+        doc_text: '[deleted after processing]',
+      });
+      console.log(`[reasonqa:incremental] Complete: ${issueDelta.resolved.length} resolved, ${issueDelta.new.length} new, ${issueDelta.unchanged.length} unchanged`);
+    });
+  },
+);
+
+export const functions = [analyseDocument, reverifyDocument, runDialectical, incrementalAnalysis];

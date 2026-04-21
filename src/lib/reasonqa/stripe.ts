@@ -16,13 +16,14 @@ const FREE_LIMIT = 2;
 const PRO_LIMIT = 20;
 
 export async function getMonthlyUsage(userId: string): Promise<number> {
-  const { data } = await getSupabaseAdmin()
+  const { count } = await getSupabaseAdmin()
     .from('reasonqa_analyses')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .neq('status', 'error')
+    .neq('analysis_type', 'incremental')
     .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-  return data?.length ?? 0;
+  return count ?? 0;
 }
 
 export async function getActiveSubscription(userId: string): Promise<{ id: string; status: string } | null> {

@@ -13,6 +13,9 @@ interface AnalysisRow {
   doc_type: string;
   created_at: string;
   quality: string | null;
+  version_group_id?: string;
+  version_number?: number;
+  analysis_type?: string;
 }
 
 export function AnalysisList({ analyses }: { analyses: AnalysisRow[] }) {
@@ -60,6 +63,8 @@ export function AnalysisList({ analyses }: { analyses: AnalysisRow[] }) {
               </p>
               <p className="mt-1 text-sm text-[#8B8BA3]">
                 {a.doc_type.toUpperCase()} &middot; {date}
+                {(a.version_number ?? 1) > 1 && ` · v${a.version_number}`}
+                {a.analysis_type === 'incremental' && ' · incremental'}
                 {isStuck && ' · appears stalled'}
               </p>
             </Link>

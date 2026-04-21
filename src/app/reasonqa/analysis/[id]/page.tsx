@@ -64,5 +64,19 @@ export default async function AnalysisPage({
     );
   }
 
-  return <ReportTabs analysis={analysis} />;
+  // Fetch version siblings for the version switcher
+  let versionSiblings: Array<{ id: string; version_number: number; analysis_type: string; created_at: string }> = [];
+  if (analysis.version_group_id) {
+    const { data: siblings } = await getSupabaseAdmin()
+      .from('reasonqa_analyses')
+      .select('id, version_number, analysis_type, created_at')
+      .eq('version_group_id', analysis.version_group_id)
+      .eq('status', 'complete')
+      .order('version_number', { ascending: true });
+    if (siblings && siblings.length > 1) {
+      versionSiblings = siblings;
+    }
+  }
+
+  return <ReportTabs analysis={analysis} versionSiblings={versionSiblings} />;
 }

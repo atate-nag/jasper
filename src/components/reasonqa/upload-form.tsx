@@ -113,6 +113,9 @@ export function UploadForm() {
   const [error, setError] = useState<string | null>(null);
   const [upgradeUrl, setUpgradeUrl] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [revisionCandidates, setRevisionCandidates] = useState<Array<{
+    id: string; title: string; version: number; createdAt: string; similarity: number;
+  }> | null>(null);
 
   const estimates = useMemo(() => {
     if (!file) return null;
@@ -153,12 +156,50 @@ export function UploadForm() {
         return;
       }
 
+      // Revision detected — show candidates instead of starting analysis
+      if (data.revisionDetected && data.candidates?.length > 0) {
+        setRevisionCandidates(data.candidates);
+        setLoading(false);
+        return;
+      }
+
       // Pipeline runs via Inngest — redirect to polling page
       window.location.href = `/reasonqa/analysis/${data.id}`;
     } catch {
       setError('Something went wrong. Please try again.');
       setLoading(false);
     }
+  }
+
+  async function handleIncremental(parentAnalysisId: string) {
+    if (!file) return;
+    setLoading(true);
+    setError(null);
+    setRevisionCandidates(null);
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('mode', 'full');
+      form.append('parentAnalysisId', parentAnalysisId);
+
+      const res = await fetch('/api/reasonqa/analyse', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Upload failed');
+        setLoading(false);
+        return;
+      }
+      window.location.href = `/reasonqa/analysis/${data.id}`;
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setLoading(false);
+    }
+  }
+
+  function handleNewAnalysis() {
+    setRevisionCandidates(null);
+    // Re-submit as new (the form will submit normally on next click)
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -264,6 +305,38 @@ export function UploadForm() {
           <p className="text-xs text-[#8B8BA3]">
             Time estimates based on document size.
           </p>
+        </div>
+      )}
+
+      {/* Revision detection */}
+      {revisionCandidates && revisionCandidates.length > 0 && (
+        <div className="rounded border border-[#1B2A4A] bg-[#E8ECF4] p-4">
+          <p className="text-sm font-medium text-[#1A1A2E]">
+            This looks like a revised version of a previously analysed document.
+          </p>
+          <div className="mt-3 space-y-2">
+            {revisionCandidates.map(c => (
+              <button
+                key={c.id}
+                onClick={() => handleIncremental(c.id)}
+                disabled={loading}
+                className="w-full rounded border border-[#D1D5DB] bg-white px-4 py-3 text-left hover:border-[#1B2A4A] disabled:opacity-50"
+              >
+                <p className="text-sm font-medium text-[#1A1A2E]">
+                  Update &ldquo;{c.title}&rdquo; (v{c.version})
+                </p>
+                <p className="mt-0.5 text-xs text-[#8B8BA3]">
+                  Incremental analysis &mdash; re-checks only changed sections. ~2 min, doesn&apos;t count against your monthly limit.
+                </p>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleNewAnalysis}
+            className="mt-3 text-xs text-[#8B8BA3] hover:text-[#1A1A2E]"
+          >
+            Analyse as new document instead
+          </button>
         </div>
       )}
 
